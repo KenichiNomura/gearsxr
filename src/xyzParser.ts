@@ -21,12 +21,131 @@ export interface ParseProgress {
   totalBytes: number;
 }
 
+interface PropertyField {
+  name: string;
+  type: string;
+  count: number;
+  start: number;
+}
+
+interface FrameLayout {
+  symbolIndex: number;
+  positionIndices: [number, number, number];
+  idIndex: number | null;
+}
+
+interface ParsedAtom {
+  symbol: string;
+  id: number | null;
+  x: number;
+  y: number;
+  z: number;
+}
+
+const SYMBOL_PROPERTY_NAMES = new Set(["species", "symbol", "element", "atom", "atomspecies"]);
+const POSITION_PROPERTY_NAMES = new Set(["pos", "position", "positions", "coord", "coords", "coordinate", "coordinates"]);
+const ID_PROPERTY_NAMES = new Set([
+  "id",
+  "atomid",
+  "atomidentifier",
+  "identifier",
+  "particleid",
+  "particleidentifier",
+  "uid",
+]);
+
+function normalizePropertyName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function extractPropertiesSpec(comment: string): string | null {
+  const match = comment.match(/\bProperties=(?:"([^"]*)"|'([^']*)'|(\S+))/);
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+}
+
+function parseProperties(comment: string): PropertyField[] | null {
+  const spec = extractPropertiesSpec(comment);
+  if (!spec) return null;
+
+  const tokens = spec.split(":");
+  if (tokens.length % 3 !== 0) return null;
+
+  const fields: PropertyField[] = [];
+  let start = 0;
+  for (let i = 0; i < tokens.length; i += 3) {
+    const count = parseInt(tokens[i + 2], 10);
+    if (!tokens[i] || !tokens[i + 1] || !Number.isFinite(count) || count < 1) return null;
+    fields.push({ name: tokens[i], type: tokens[i + 1], count, start });
+    start += count;
+  }
+  return fields;
+}
+
+function findField(fields: PropertyField[], names: Set<string>, minCount = 1): PropertyField | undefined {
+  return fields.find((field) => field.count >= minCount && names.has(normalizePropertyName(field.name)));
+}
+
+function getFrameLayout(comment: string): FrameLayout {
+  const fields = parseProperties(comment);
+  if (!fields) {
+    return { symbolIndex: 0, positionIndices: [1, 2, 3], idIndex: null };
+  }
+
+  const symbolField = findField(fields, SYMBOL_PROPERTY_NAMES);
+  const positionField = findField(fields, POSITION_PROPERTY_NAMES, 3);
+  const idField = findField(fields, ID_PROPERTY_NAMES);
+  const xField = fields.find((field) => field.count === 1 && normalizePropertyName(field.name) === "x");
+  const yField = fields.find((field) => field.count === 1 && normalizePropertyName(field.name) === "y");
+  const zField = fields.find((field) => field.count === 1 && normalizePropertyName(field.name) === "z");
+
+  return {
+    symbolIndex: symbolField?.start ?? 0,
+    positionIndices: positionField
+      ? [positionField.start, positionField.start + 1, positionField.start + 2]
+      : xField && yField && zField
+        ? [xField.start, yField.start, zField.start]
+        : [1, 2, 3],
+    idIndex: idField?.start ?? null,
+  };
+}
+
+function parseAtomLine(line: string, layout: FrameLayout, frameIndex: number, atomIndex: number): ParsedAtom {
+  const parts = line.trim().split(/\s+/);
+  const symbol = parts[layout.symbolIndex] ?? parts[0] ?? "X";
+  const x = parseFloat(parts[layout.positionIndices[0]]);
+  const y = parseFloat(parts[layout.positionIndices[1]]);
+  const z = parseFloat(parts[layout.positionIndices[2]]);
+
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
+    throw new Error(`Frame ${frameIndex}, atom ${atomIndex}: could not parse finite xyz coordinates from "${line}"`);
+  }
+
+  let id: number | null = null;
+  if (layout.idIndex !== null) {
+    const parsedId = Number(parts[layout.idIndex]);
+    if (Number.isInteger(parsedId)) {
+      id = parsedId;
+    }
+  }
+
+  return { symbol, id, x, y, z };
+}
+
+function makeAtomIdMap(atoms: ParsedAtom[]): Map<number, number> | null {
+  const idToIndex = new Map<number, number>();
+  for (let i = 0; i < atoms.length; i++) {
+    const id = atoms[i].id;
+    if (id === null || idToIndex.has(id)) return null;
+    idToIndex.set(id, i);
+  }
+  return idToIndex;
+}
+
 /**
  * Parses an extended XYZ file via a streaming line reader so we never hold
- * the full file as one big JS string. Assumes atom count and ordering are
- * constant across frames (true for typical MD trajectories), which lets us
- * store all coordinates in one preallocated Float32Array instead of
- * per-atom/per-frame objects.
+ * the full file as one big JS string. When an extended XYZ Properties field
+ * includes atom IDs, every frame is reordered to the first frame's ID order
+ * so trajectories exported with changing line order still animate smoothly.
  */
 export async function parseExtendedXYZ(
   file: Blob,
@@ -72,6 +191,7 @@ export async function parseExtendedXYZ(
   let positions: Float32Array | null = null;
   let frameCapacity = 0;
   let numFrames = 0;
+  let idToAtomIndex: Map<number, number> | null = null;
 
   function ensureCapacity(minFrames: number) {
     if (!positions || frameCapacity < minFrames) {
@@ -89,35 +209,67 @@ export async function parseExtendedXYZ(
     const trimmed = countLine.trim();
     if (trimmed.length === 0) continue;
 
-    const frameAtoms = parseInt(trimmed, 10);
-    if (Number.isNaN(frameAtoms)) {
+    const frameAtomCount = parseInt(trimmed, 10);
+    if (Number.isNaN(frameAtomCount)) {
       throw new Error(`Expected atom count, got: "${countLine}"`);
     }
     if (numAtoms === -1) {
-      numAtoms = frameAtoms;
-    } else if (frameAtoms !== numAtoms) {
+      numAtoms = frameAtomCount;
+    } else if (frameAtomCount !== numAtoms) {
       throw new Error(
-        `Frame ${numFrames} has ${frameAtoms} atoms, expected ${numAtoms}. Variable atom counts are not supported.`,
+        `Frame ${numFrames} has ${frameAtomCount} atoms, expected ${numAtoms}. Variable atom counts are not supported.`,
       );
     }
 
     const comment = (await nextLine()) ?? "";
     comments.push(comment);
+    const layout = getFrameLayout(comment);
 
     ensureCapacity(numFrames + 1);
     const base = numFrames * numAtoms * 3;
+    const frameAtoms: ParsedAtom[] = [];
 
     for (let i = 0; i < numAtoms; i++) {
       const line = await nextLine();
       if (line === null) throw new Error("Unexpected end of file while reading atom data");
-      const parts = line.trim().split(/\s+/);
-      if (numFrames === 0) {
-        symbols.push(parts[0]);
+      frameAtoms.push(parseAtomLine(line, layout, numFrames, i));
+    }
+
+    if (numFrames === 0) {
+      idToAtomIndex = makeAtomIdMap(frameAtoms);
+    }
+
+    if (idToAtomIndex) {
+      const seenAtomIndices = new Set<number>();
+      for (let i = 0; i < numAtoms; i++) {
+        const atom = frameAtoms[i];
+        if (atom.id === null || !idToAtomIndex.has(atom.id)) {
+          throw new Error(`Frame ${numFrames} atom IDs do not match the first frame.`);
+        }
+        const atomIndex = idToAtomIndex.get(atom.id)!;
+        if (seenAtomIndices.has(atomIndex)) {
+          throw new Error(`Frame ${numFrames} contains duplicate atom ID ${atom.id}.`);
+        }
+        seenAtomIndices.add(atomIndex);
+        if (numFrames === 0) {
+          symbols[atomIndex] = atom.symbol;
+        }
+        const off = base + atomIndex * 3;
+        positions![off] = atom.x;
+        positions![off + 1] = atom.y;
+        positions![off + 2] = atom.z;
       }
-      const off = base + i * 3;
-      positions![off] = parseFloat(parts[1]);
-      positions![off + 1] = parseFloat(parts[2]);
-      positions![off + 2] = parseFloat(parts[3]);
+    } else {
+      for (let i = 0; i < numAtoms; i++) {
+        const atom = frameAtoms[i];
+        if (numFrames === 0) {
+          symbols.push(atom.symbol);
+        }
+        const off = base + i * 3;
+        positions![off] = atom.x;
+        positions![off + 1] = atom.y;
+        positions![off + 2] = atom.z;
+      }
     }
 
     numFrames++;

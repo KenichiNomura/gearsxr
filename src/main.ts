@@ -35,6 +35,7 @@ scene.background = new THREE.Color(0x111317);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 1000);
 camera.position.set(0, 1.5, 4);
+scene.add(camera);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio);
@@ -48,10 +49,12 @@ const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.target.set(0, 1, 0);
 orbitControls.enableDamping = true;
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2));
-const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-dirLight.position.set(2, 4, 3);
-scene.add(dirLight);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.55));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.35);
+dirLight.position.set(0, 0, 0);
+dirLight.target.position.set(0, 0, -1);
+camera.add(dirLight);
+camera.add(dirLight.target);
 
 const grid = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
 grid.position.y = 0;

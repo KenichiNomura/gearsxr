@@ -22,7 +22,8 @@ export class MoleculeRenderer {
   private bondCapacity: number;
   private currentFrame = -1;
   private bondCylinderGeom = new THREE.CylinderGeometry(1, 1, 1, 8, 1);
-  private dummy = new THREE.Object3D();
+  private atomTransform = new THREE.Object3D();
+  private bondTransform = new THREE.Object3D();
   private bondsCacheFrame = -1;
   private bondsCache: Bond[] = [];
   private computeBondsEnabled = true;
@@ -97,9 +98,9 @@ export class MoleculeRenderer {
       for (let k = 0; k < indices.length; k++) {
         const atomIdx = indices[k];
         const off = base + atomIdx * 3;
-        this.dummy.position.set(positions[off], positions[off + 1], positions[off + 2]);
-        this.dummy.updateMatrix();
-        mesh.setMatrixAt(k, this.dummy.matrix);
+        this.atomTransform.position.set(positions[off], positions[off + 1], positions[off + 2]);
+        this.atomTransform.updateMatrix();
+        mesh.setMatrixAt(k, this.atomTransform.matrix);
       }
       mesh.instanceMatrix.needsUpdate = true;
     }
@@ -152,11 +153,11 @@ export class MoleculeRenderer {
       dir.normalize();
       quat.setFromUnitVectors(up, dir);
 
-      this.dummy.position.copy(mid);
-      this.dummy.quaternion.copy(quat);
-      this.dummy.scale.set(BOND_RADIUS, len, BOND_RADIUS);
-      this.dummy.updateMatrix();
-      this.bondMesh.setMatrixAt(i, this.dummy.matrix);
+      this.bondTransform.position.copy(mid);
+      this.bondTransform.quaternion.copy(quat);
+      this.bondTransform.scale.set(BOND_RADIUS, len, BOND_RADIUS);
+      this.bondTransform.updateMatrix();
+      this.bondMesh.setMatrixAt(i, this.bondTransform.matrix);
     }
     this.bondMesh.count = bonds.length;
     this.bondMesh.instanceMatrix.needsUpdate = true;
