@@ -16,6 +16,7 @@
       #ui h1 { font-size: 14px; margin: 0 0 8px; font-weight: 600; }
       #ui label { display: block; font-size: 12px; margin: 6px 0 2px; }
       #ui input[type="file"] { font-size: 12px; }
+      #ui input[type="text"] { width: 100%; box-sizing: border-box; font-size: 12px; margin-top: 4px; }
       #ui input[type="range"] { width: 100%; }
       #ui button { margin-right: 6px; margin-top: 4px; font-size: 12px; cursor: pointer; }
       #status { font-size: 11px; opacity: 0.8; margin-top: 6px; white-space: pre-line; }
@@ -28,6 +29,9 @@
       <h1>MD Trajectory VR Viewer</h1>
       <label for="fileInput">Load extended XYZ file (or drag &amp; drop anywhere)</label>
       <input id="fileInput" type="file" />
+      <label for="urlInput" style="margin-top:8px">Or load from a URL</label>
+      <input id="urlInput" type="text" placeholder="https://.../trajectory.xyz" value="https://kenichinomura.github.io/vr-md-viewer/samples/sto.xyz" />
+      <button id="loadUrlBtn" style="margin-top:4px">Load URL</button>
       <div id="playback" style="display:none">
         <label>Frame: <span id="frameLabel">0 / 0</span></label>
         <input id="frameSlider" type="range" min="0" max="0" value="0" />

@@ -29,7 +29,7 @@ export interface ParseProgress {
  * per-atom/per-frame objects.
  */
 export async function parseExtendedXYZ(
-  file: File,
+  file: Blob,
   onProgress?: (p: ParseProgress) => void,
 ): Promise<Trajectory> {
   const totalBytes = file.size;

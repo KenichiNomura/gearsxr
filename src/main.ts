@@ -10,6 +10,8 @@ import { Playback } from "./playback";
 const appEl = document.getElementById("app")!;
 const statusEl = document.getElementById("status")!;
 const fileInput = document.getElementById("fileInput") as HTMLInputElement;
+const urlInput = document.getElementById("urlInput") as HTMLInputElement;
+const loadUrlBtn = document.getElementById("loadUrlBtn") as HTMLButtonElement;
 const vrEntryEl = document.getElementById("vrEntry")!;
 const playbackEl = document.getElementById("playback")!;
 const frameSlider = document.getElementById("frameSlider") as HTMLInputElement;
@@ -105,7 +107,7 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "c" || e.key === "C") measurementTool.clear();
 });
 
-async function loadTrajectoryFile(file: File) {
+async function loadTrajectoryFile(file: Blob) {
   statusEl.textContent = "Parsing...";
   try {
     const trajectory = await parseExtendedXYZ(file, (p) => {
@@ -163,6 +165,23 @@ window.addEventListener("drop", (e) => {
   dropZone.style.outline = "none";
   const file = e.dataTransfer?.files?.[0];
   if (file) loadTrajectoryFile(file);
+});
+
+loadUrlBtn.addEventListener("click", async () => {
+  const url = urlInput.value.trim();
+  if (!url) return;
+  statusEl.textContent = "Fetching...";
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    await loadTrajectoryFile(blob);
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = `Fetch error: ${(err as Error).message}`;
+  }
 });
 
 frameSlider.addEventListener("input", () => {
