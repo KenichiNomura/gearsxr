@@ -6,6 +6,17 @@ import { MoleculeRenderer } from "./moleculeRenderer";
 import { VRObjectManipulator } from "./vrInteraction";
 import { MeasurementTool } from "./measurement";
 import { Playback } from "./playback";
+import {
+  CollaborationClient,
+  defaultWebSocketBase,
+  makeRoomId,
+  makeShareUrl,
+  normalizeWebSocketBase,
+  sanitizeRoomId,
+  type PresenterState,
+  type TransformState,
+  type ViewState,
+} from "./collaboration";
 
 const appEl = document.getElementById("app")!;
 const statusEl = document.getElementById("status")!;
@@ -20,6 +31,15 @@ const playBtn = document.getElementById("playBtn") as HTMLButtonElement;
 const stepBack = document.getElementById("stepBack") as HTMLButtonElement;
 const stepFwd = document.getElementById("stepFwd") as HTMLButtonElement;
 const fpsInput = document.getElementById("fpsInput") as HTMLInputElement;
+const roomInput = document.getElementById("roomInput") as HTMLInputElement;
+const userNameInput = document.getElementById("userNameInput") as HTMLInputElement;
+const serverInput = document.getElementById("serverInput") as HTMLInputElement;
+const joinRoomBtn = document.getElementById("joinRoomBtn") as HTMLButtonElement;
+const leaveRoomBtn = document.getElementById("leaveRoomBtn") as HTMLButtonElement;
+const roomLink = document.getElementById("roomLink") as HTMLInputElement;
+const copyRoomLinkBtn = document.getElementById("copyRoomLinkBtn") as HTMLButtonElement;
+const takePresenterBtn = document.getElementById("takePresenterBtn") as HTMLButtonElement;
+const collabStatusEl = document.getElementById("collabStatus")!;
 
 // Surface otherwise-silent runtime errors in the UI status line, since most
 // users testing this won't have DevTools open.
@@ -62,6 +82,14 @@ scene.add(grid);
 
 let moleculeRenderer: MoleculeRenderer | null = null;
 let playback: Playback | null = null;
+let currentTrajectoryUrl: string | null = null;
+let pendingTrajectoryUrl: string | null = null;
+let applyingRemoteState = false;
+let pendingPresenterSync = false;
+let lastPresenterSyncAt = 0;
+let lastObservedTransform = "";
+let lastObservedView = "";
+let remoteApplyVersion = 0;
 
 // Persistent group that VR grab/scale acts on; molecule contents are swapped
 // in/out of it per file load so the manipulator/controllers only need to be
@@ -93,6 +121,189 @@ for (const controller of manipulator.getControllers()) {
   setupSelectionRaycast(controller);
 }
 
+const USER_NAME_KEY = "vr-md-viewer-user-name";
+const SERVER_BASE_KEY = "vr-md-viewer-server-base";
+const roomFromUrl = sanitizeRoomId(new URLSearchParams(location.search).get("room") ?? "");
+roomInput.value = roomFromUrl.length >= 3 ? roomFromUrl : makeRoomId();
+userNameInput.value = localStorage.getItem(USER_NAME_KEY) ?? `User ${Math.floor(1000 + Math.random() * 9000)}`;
+serverInput.value = normalizeWebSocketBase(new URLSearchParams(location.search).get("server") ?? localStorage.getItem(SERVER_BASE_KEY) ?? defaultWebSocketBase());
+
+const collaboration = new CollaborationClient({
+  onSnapshot: (message) => {
+    updateCollaborationUi();
+    if (collaboration.isPresenter()) {
+      markPresenterStateDirty(true);
+    } else {
+      void applyRemotePresenterState(message.state);
+    }
+  },
+  onPresence: () => updateCollaborationUi(),
+  onPresenterState: (message) => {
+    if (message.senderId !== collaboration.selfId) {
+      void applyRemotePresenterState(message.state);
+    }
+  },
+  onPresenterChanged: () => {
+    updateCollaborationUi();
+    if (collaboration.isPresenter()) {
+      markPresenterStateDirty(true);
+    }
+  },
+  onConnectionStatus: () => updateCollaborationUi(),
+  onError: (message) => {
+    collabStatusEl.textContent = `Room error: ${message}`;
+  },
+});
+
+function transformSignature(transform: TransformState) {
+  return [
+    ...transform.position,
+    ...transform.quaternion,
+    ...transform.scale,
+  ].map((value) => value.toFixed(5)).join(",");
+}
+
+function viewSignature(view: ViewState) {
+  return [
+    ...view.cameraPosition,
+    ...view.orbitTarget,
+  ].map((value) => value.toFixed(5)).join(",");
+}
+
+function getMoleculeTransform(): TransformState {
+  return {
+    position: moleculeRoot.position.toArray() as [number, number, number],
+    quaternion: moleculeRoot.quaternion.toArray() as [number, number, number, number],
+    scale: moleculeRoot.scale.toArray() as [number, number, number],
+  };
+}
+
+function getViewState(): ViewState {
+  return {
+    cameraPosition: camera.position.toArray() as [number, number, number],
+    orbitTarget: orbitControls.target.toArray() as [number, number, number],
+  };
+}
+
+function applyMoleculeTransform(transform: TransformState) {
+  moleculeRoot.position.fromArray(transform.position);
+  moleculeRoot.quaternion.fromArray(transform.quaternion);
+  moleculeRoot.scale.fromArray(transform.scale);
+  moleculeRoot.updateMatrixWorld(true);
+  lastObservedTransform = transformSignature(getMoleculeTransform());
+}
+
+function applyViewState(view: ViewState) {
+  if (renderer.xr.isPresenting) return;
+
+  camera.position.fromArray(view.cameraPosition);
+  orbitControls.target.fromArray(view.orbitTarget);
+  camera.updateMatrixWorld(true);
+  orbitControls.update();
+  lastObservedView = viewSignature(getViewState());
+}
+
+function getPresenterState(): PresenterState {
+  return {
+    trajectoryUrl: currentTrajectoryUrl,
+    frameIndex: playback?.frame ?? 0,
+    playing: playback?.playing ?? false,
+    fps: playback?.fps ?? Math.max(1, parseInt(fpsInput.value, 10) || 15),
+    transform: getMoleculeTransform(),
+    view: getViewState(),
+    presenterId: collaboration.presenterId,
+    updatedAt: Date.now(),
+  };
+}
+
+function markPresenterStateDirty(force = false) {
+  if (applyingRemoteState || !collaboration.isPresenter()) return;
+  pendingPresenterSync = true;
+  if (force) flushPresenterState(true);
+}
+
+function flushPresenterState(force = false) {
+  if (!pendingPresenterSync || !collaboration.isPresenter()) return;
+  const now = performance.now();
+  if (!force && now - lastPresenterSyncAt < 100) return;
+  collaboration.sendPresenterState(getPresenterState());
+  pendingPresenterSync = false;
+  lastPresenterSyncAt = now;
+}
+
+function updateRoomLink() {
+  const roomId = sanitizeRoomId(roomInput.value);
+  roomLink.value = roomId.length >= 3 ? makeShareUrl(roomId, serverInput.value) : "";
+  copyRoomLinkBtn.disabled = !roomLink.value;
+}
+
+function updateCollaborationUi() {
+  updateRoomLink();
+  const connected = collaboration.isConnected();
+  const connecting = collaboration.connectionStatus === "connecting";
+  const presenter = collaboration.users.find((user) => user.id === collaboration.presenterId);
+  const role = connected ? (collaboration.isPresenter() ? "Presenter" : "Follower") : collaboration.connectionStatus;
+  const users = collaboration.users.length;
+
+  joinRoomBtn.disabled = connected || connecting;
+  leaveRoomBtn.disabled = !connected && !connecting;
+  takePresenterBtn.disabled = !connected || collaboration.isPresenter();
+  serverInput.disabled = connected || connecting;
+  const canControlSharedState = !connected || collaboration.isPresenter();
+  manipulator.setEnabled(canControlSharedState);
+  orbitControls.enabled = canControlSharedState;
+  fileInput.disabled = !canControlSharedState;
+  urlInput.disabled = !canControlSharedState;
+  loadUrlBtn.disabled = !canControlSharedState;
+  frameSlider.disabled = !canControlSharedState;
+  playBtn.disabled = !canControlSharedState;
+  stepBack.disabled = !canControlSharedState;
+  stepFwd.disabled = !canControlSharedState;
+  fpsInput.disabled = !canControlSharedState;
+
+  const statusLines = connected
+    ? [
+        `${role} | ${users} user${users === 1 ? "" : "s"}`,
+        presenter ? `Presenter: ${presenter.name}` : "Presenter: none",
+        collaboration.isPresenter() ? "You control frame and view" : "Following presenter view",
+        `Server: ${serverInput.value}`,
+      ]
+    : [role.charAt(0).toUpperCase() + role.slice(1)];
+  collabStatusEl.textContent = statusLines.join("\n");
+}
+
+async function applyRemotePresenterState(state: PresenterState) {
+  const applyVersion = ++remoteApplyVersion;
+  applyingRemoteState = true;
+  try {
+    if (!state.trajectoryUrl && !moleculeRenderer) {
+      statusEl.textContent = "Waiting for presenter to load a trajectory URL. Local files are not shared through the room.";
+    }
+
+    if (state.trajectoryUrl && state.trajectoryUrl !== currentTrajectoryUrl) {
+      await loadTrajectoryFromUrl(state.trajectoryUrl, false);
+      if (applyVersion !== remoteApplyVersion) return;
+    }
+
+    applyMoleculeTransform(state.transform);
+    if (state.view) {
+      applyViewState(state.view);
+    }
+    if (playback) {
+      playback.fps = state.fps;
+      fpsInput.value = String(state.fps);
+      playback.playing = state.playing;
+      playBtn.textContent = playback.playing ? "Pause" : "Play";
+      playback.setFrame(state.frameIndex);
+    }
+  } finally {
+    applyingRemoteState = false;
+    updateCollaborationUi();
+  }
+}
+
+updateCollaborationUi();
+
 // Desktop click-to-select (so the measurement tool is usable without a headset).
 renderer.domElement.addEventListener("dblclick", (event: MouseEvent) => {
   if (!moleculeRenderer) return;
@@ -110,7 +321,7 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "c" || e.key === "C") measurementTool.clear();
 });
 
-async function loadTrajectoryFile(file: Blob) {
+async function loadTrajectoryFile(file: Blob, sourceUrl: string | null = null, broadcastState = true) {
   statusEl.textContent = "Parsing...";
   try {
     const trajectory = await parseExtendedXYZ(file, (p) => {
@@ -126,12 +337,15 @@ async function loadTrajectoryFile(file: Blob) {
     moleculeRoot.position.set(0, 0, 0);
     moleculeRoot.quaternion.identity();
     moleculeRoot.scale.set(1, 1, 1);
+    lastObservedTransform = transformSignature(getMoleculeTransform());
     measurementTool.clear();
+    currentTrajectoryUrl = sourceUrl;
 
     playback = new Playback(trajectory.numFrames, (frame) => {
       moleculeRenderer?.setFrame(frame);
       frameSlider.value = String(frame);
       frameLabel.textContent = `${frame} / ${trajectory.numFrames - 1}`;
+      markPresenterStateDirty();
     });
 
     frameSlider.min = "0";
@@ -141,15 +355,38 @@ async function loadTrajectoryFile(file: Blob) {
     playbackEl.style.display = "block";
 
     statusEl.textContent = `Loaded ${trajectory.numAtoms} atoms x ${trajectory.numFrames} frames`;
+    if (broadcastState && collaboration.isPresenter() && !sourceUrl) {
+      statusEl.textContent += "\nRoom note: local files cannot sync to other users. Use Load URL for multiuser rooms.";
+    }
+    if (broadcastState) markPresenterStateDirty(true);
   } catch (err) {
     console.error(err);
     statusEl.textContent = `Error: ${(err as Error).message}`;
   }
 }
 
+async function loadTrajectoryFromUrl(url: string, broadcastState = true) {
+  if (pendingTrajectoryUrl === url) return;
+  pendingTrajectoryUrl = url;
+  statusEl.textContent = "Fetching...";
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    await loadTrajectoryFile(blob, url, broadcastState);
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = `Fetch error: ${(err as Error).message}`;
+  } finally {
+    pendingTrajectoryUrl = null;
+  }
+}
+
 fileInput.addEventListener("change", () => {
   const file = fileInput.files?.[0];
-  if (file) loadTrajectoryFile(file);
+  if (file) loadTrajectoryFile(file, null, true);
 });
 
 // Drag-and-drop fallback: doesn't depend on the native file-picker dialog,
@@ -167,24 +404,13 @@ window.addEventListener("drop", (e) => {
   e.preventDefault();
   dropZone.style.outline = "none";
   const file = e.dataTransfer?.files?.[0];
-  if (file) loadTrajectoryFile(file);
+  if (file) loadTrajectoryFile(file, null, true);
 });
 
 loadUrlBtn.addEventListener("click", async () => {
   const url = urlInput.value.trim();
   if (!url) return;
-  statusEl.textContent = "Fetching...";
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText}`);
-    }
-    const blob = await response.blob();
-    await loadTrajectoryFile(blob);
-  } catch (err) {
-    console.error(err);
-    statusEl.textContent = `Fetch error: ${(err as Error).message}`;
-  }
+  await loadTrajectoryFromUrl(url, true);
 });
 
 frameSlider.addEventListener("input", () => {
@@ -195,6 +421,7 @@ playBtn.addEventListener("click", () => {
   if (!playback) return;
   playback.playing = !playback.playing;
   playBtn.textContent = playback.playing ? "Pause" : "Play";
+  markPresenterStateDirty(true);
 });
 
 stepBack.addEventListener("click", () => {
@@ -210,6 +437,42 @@ stepFwd.addEventListener("click", () => {
 fpsInput.addEventListener("change", () => {
   if (!playback) return;
   playback.fps = Math.max(1, parseInt(fpsInput.value, 10) || 15);
+  fpsInput.value = String(playback.fps);
+  markPresenterStateDirty(true);
+});
+
+roomInput.addEventListener("input", updateRoomLink);
+serverInput.addEventListener("input", updateRoomLink);
+
+joinRoomBtn.addEventListener("click", () => {
+  const roomId = sanitizeRoomId(roomInput.value) || makeRoomId();
+  const serverBase = normalizeWebSocketBase(serverInput.value);
+  roomInput.value = roomId;
+  serverInput.value = serverBase;
+  localStorage.setItem(USER_NAME_KEY, userNameInput.value.trim());
+  localStorage.setItem(SERVER_BASE_KEY, serverBase);
+  collaboration.connect(roomId, userNameInput.value, serverBase);
+  updateRoomLink();
+});
+
+leaveRoomBtn.addEventListener("click", () => {
+  collaboration.disconnect();
+  updateCollaborationUi();
+});
+
+takePresenterBtn.addEventListener("click", () => {
+  collaboration.takePresenter();
+});
+
+copyRoomLinkBtn.addEventListener("click", async () => {
+  updateRoomLink();
+  if (!roomLink.value) return;
+  try {
+    await navigator.clipboard.writeText(roomLink.value);
+    collabStatusEl.textContent = `${collabStatusEl.textContent}\nLink copied`;
+  } catch {
+    roomLink.select();
+  }
 });
 
 window.addEventListener("resize", () => {
@@ -224,6 +487,21 @@ renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
   playback?.step(delta);
   manipulator?.update();
+  const transform = getMoleculeTransform();
+  const signature = transformSignature(transform);
+  if (signature !== lastObservedTransform) {
+    lastObservedTransform = signature;
+    markPresenterStateDirty();
+  }
+  if (!renderer.xr.isPresenting) {
+    const view = getViewState();
+    const currentViewSignature = viewSignature(view);
+    if (currentViewSignature !== lastObservedView) {
+      lastObservedView = currentViewSignature;
+      markPresenterStateDirty();
+    }
+  }
   orbitControls.update();
+  flushPresenterState();
   renderer.render(scene, camera);
 });

@@ -14,6 +14,7 @@ export class VRObjectManipulator {
   private grabOffset = new Map<number, THREE.Matrix4>();
   private twoHandStartDistance = 0;
   private twoHandStartScale = 1;
+  private enabled = true;
 
   constructor(renderer: THREE.WebGLRenderer, target: THREE.Group, scene: THREE.Scene) {
     this.renderer = renderer;
@@ -46,7 +47,16 @@ export class VRObjectManipulator {
     return this.controllers;
   }
 
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+    if (!enabled) {
+      this.grabbing.clear();
+      this.grabOffset.clear();
+    }
+  }
+
   private onSelectStart(index: number) {
+    if (!this.enabled) return;
     this.grabbing.add(index);
     const controller = this.controllers[index];
     const offset = new THREE.Matrix4().copy(controller.matrixWorld).invert().multiply(this.target.matrixWorld);
@@ -70,6 +80,8 @@ export class VRObjectManipulator {
   }
 
   update() {
+    if (!this.enabled) return;
+
     if (this.grabbing.size === 1) {
       const index = [...this.grabbing][0];
       const controller = this.controllers[index];
