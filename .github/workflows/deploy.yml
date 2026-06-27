@@ -23,6 +23,8 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_COLLAB_WS_BASE: wss://vr-md-viewer-room.kenichi-nomura.workers.dev
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
