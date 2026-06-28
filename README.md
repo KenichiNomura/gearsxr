@@ -2,7 +2,7 @@
 
 GEARS XR is a browser-based molecular dynamics trajectory viewer for extended XYZ files, with desktop controls and WebXR support for virtual reality headsets.
 
-[Open the viewer](https://kenichinomura.github.io/gearsxr/)
+[Open the viewer](https://gearsxr.space/)
 
 ![GEARS XR screenshot](docs/screenshot.png)
 
@@ -31,12 +31,12 @@ The room panel is collapsed by default. Click **Show** in the bottom-right **Roo
 
 1. Open the hosted viewer:
 
-   [https://kenichinomura.github.io/gearsxr/](https://kenichinomura.github.io/gearsxr/)
+   [https://gearsxr.space/](https://gearsxr.space/)
 
 2. The URL field is prefilled with the bundled demo trajectory:
 
    ```text
-   https://kenichinomura.github.io/gearsxr/samples/tobe.xyz
+   https://gearsxr.space/samples/tobe.xyz
    ```
 
 3. Click **Load URL**.
