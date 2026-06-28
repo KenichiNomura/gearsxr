@@ -15,6 +15,8 @@ export class VRObjectManipulator {
   private twoHandStartDistance = 0;
   private twoHandStartScale = 1;
   private enabled = true;
+  private updateMatrix = new THREE.Matrix4();
+  private midpoint = new THREE.Vector3();
 
   constructor(renderer: THREE.WebGLRenderer, target: THREE.Group, scene: THREE.Scene) {
     this.renderer = renderer;
@@ -72,7 +74,7 @@ export class VRObjectManipulator {
     this.grabbing.delete(index);
     this.grabOffset.delete(index);
     if (this.grabbing.size === 1) {
-      const remaining = [...this.grabbing][0];
+      const remaining = this.getSingleGrabIndex();
       const controller = this.controllers[remaining];
       const offset = new THREE.Matrix4().copy(controller.matrixWorld).invert().multiply(this.target.matrixWorld);
       this.grabOffset.set(remaining, offset);
@@ -83,22 +85,25 @@ export class VRObjectManipulator {
     if (!this.enabled) return;
 
     if (this.grabbing.size === 1) {
-      const index = [...this.grabbing][0];
+      const index = this.getSingleGrabIndex();
       const controller = this.controllers[index];
       const offset = this.grabOffset.get(index);
       if (offset) {
-        const newMatrix = new THREE.Matrix4().copy(controller.matrixWorld).multiply(offset);
-        newMatrix.decompose(this.target.position, this.target.quaternion, this.target.scale);
+        this.updateMatrix.copy(controller.matrixWorld).multiply(offset);
+        this.updateMatrix.decompose(this.target.position, this.target.quaternion, this.target.scale);
       }
     } else if (this.grabbing.size === 2) {
       const dist = this.controllers[0].position.distanceTo(this.controllers[1].position);
       const scale = this.twoHandStartScale * (dist / Math.max(this.twoHandStartDistance, 1e-4));
       this.target.scale.setScalar(THREE.MathUtils.clamp(scale, 0.01, 100));
 
-      const midpoint = new THREE.Vector3()
-        .addVectors(this.controllers[0].position, this.controllers[1].position)
-        .multiplyScalar(0.5);
-      this.target.position.copy(midpoint);
+      this.midpoint.addVectors(this.controllers[0].position, this.controllers[1].position).multiplyScalar(0.5);
+      this.target.position.copy(this.midpoint);
     }
+  }
+
+  private getSingleGrabIndex() {
+    for (const index of this.grabbing) return index;
+    return 0;
   }
 }

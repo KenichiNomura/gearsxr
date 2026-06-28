@@ -30,6 +30,24 @@
       #ui select { width: 100%; box-sizing: border-box; font-size: 12px; margin-top: 4px; }
       #ui button { margin-right: 6px; margin-top: 4px; font-size: 12px; cursor: pointer; }
       #status { font-size: 11px; opacity: 0.8; margin-top: 6px; white-space: pre-line; }
+      #collaboration {
+        position: fixed; right: 16px; bottom: 16px; z-index: 12;
+        width: min(340px, calc(100vw - 32px)); box-sizing: border-box;
+        font-family: system-ui, sans-serif; color: #eee;
+        background: rgba(20,20,20,0.85); padding: 10px 12px;
+        border-radius: 8px;
+      }
+      #collaboration h2 { font-size: 14px; margin: 0; font-weight: 600; }
+      #roomContent { margin-top: 8px; }
+      #collaboration.collapsed #roomContent { display: none; }
+      #collaboration label { display: block; font-size: 12px; margin: 6px 0 2px; }
+      #collaboration input[type="text"] { width: 100%; box-sizing: border-box; font-size: 12px; margin-top: 4px; }
+      #collaboration button { margin-right: 6px; margin-top: 4px; font-size: 12px; cursor: pointer; }
+      #toggleRoomBtn {
+        flex: 0 0 auto; margin: 0 !important; padding: 2px 8px;
+        color: #eee; background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.22); border-radius: 4px;
+      }
       #playback {
         position: fixed; left: 16px; bottom: 16px; z-index: 12;
         width: min(360px, calc(100vw - 32px)); box-sizing: border-box;
@@ -54,12 +72,14 @@
         position: static !important; top: auto !important; right: auto !important;
         bottom: auto !important; left: auto !important; margin: 0 !important;
       }
-      .panelDivider { border-top: 1px solid rgba(255,255,255,0.16); margin-top: 10px; padding-top: 8px; }
       .row { display: flex; gap: 6px; align-items: center; }
       .row input[type="text"] { flex: 1; min-width: 0; }
       .row button { flex: 0 0 auto; }
       #roomLink { opacity: 0.82; }
       #collabStatus { font-size: 11px; opacity: 0.82; margin-top: 6px; white-space: pre-line; }
+      @media (max-width: 760px) {
+        body.has-playback #collaboration { bottom: 128px; }
+      }
     </style>
   </head>
   <body>
@@ -77,28 +97,34 @@
         <button id="loadUrlBtn" style="margin-top:4px">Load URL</button>
         <label for="backgroundSelect" style="margin-top:8px">Background</label>
         <select id="backgroundSelect"></select>
-        <div id="collaboration" class="panelDivider">
-          <label for="roomInput">Room</label>
-          <div class="row">
-            <input id="roomInput" type="text" spellcheck="false" />
-            <button id="joinRoomBtn">Join</button>
-            <button id="leaveRoomBtn" disabled>Leave</button>
-          </div>
-          <label for="userNameInput">Name</label>
-          <input id="userNameInput" type="text" spellcheck="false" />
-          <label for="serverInput">Room server</label>
-          <input id="serverInput" type="text" spellcheck="false" />
-          <label for="roomLink">Share</label>
-          <div class="row">
-            <input id="roomLink" type="text" readonly placeholder="Join a room" />
-            <button id="copyRoomLinkBtn" disabled>Copy</button>
-          </div>
-          <div>
-            <button id="takePresenterBtn" disabled>Take Presenter</button>
-          </div>
-          <div id="collabStatus">Offline</div>
-        </div>
         <div id="status"></div>
+      </div>
+    </div>
+    <div id="collaboration">
+      <div class="panelHeader">
+        <h2>Room</h2>
+        <button id="toggleRoomBtn" type="button" aria-controls="roomContent" aria-expanded="true">Hide</button>
+      </div>
+      <div id="roomContent">
+        <label for="roomInput">Room</label>
+        <div class="row">
+          <input id="roomInput" type="text" spellcheck="false" />
+          <button id="joinRoomBtn">Join</button>
+          <button id="leaveRoomBtn" disabled>Leave</button>
+        </div>
+        <label for="userNameInput">Name</label>
+        <input id="userNameInput" type="text" spellcheck="false" />
+        <label for="serverInput">Room server</label>
+        <input id="serverInput" type="text" spellcheck="false" />
+        <label for="roomLink">Share</label>
+        <div class="row">
+          <input id="roomLink" type="text" readonly placeholder="Join a room" />
+          <button id="copyRoomLinkBtn" disabled>Copy</button>
+        </div>
+        <div>
+          <button id="takePresenterBtn" disabled>Take Presenter</button>
+        </div>
+        <div id="collabStatus">Offline</div>
       </div>
     </div>
     <div id="playback" style="display:none">

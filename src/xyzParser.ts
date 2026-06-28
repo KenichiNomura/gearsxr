@@ -291,7 +291,7 @@ export async function parseExtendedXYZ(
     numAtoms,
     symbols,
     frameSymbols,
-    positions: (positions as Float32Array).subarray(0, numFrames * numAtoms * 3),
+    positions: (positions as Float32Array).slice(0, numFrames * numAtoms * 3),
     comments,
   };
 }

@@ -10,12 +10,10 @@ function getAtomSymbol(trajectory: Trajectory, frameIndex: number, atomIndex: nu
   return trajectory.frameSymbols[frameIndex * trajectory.numAtoms + atomIndex] ?? trajectory.symbols[atomIndex] ?? "X";
 }
 
-function getFrameSymbols(trajectory: Trajectory, frameIndex: number): string[] {
-  const symbols = new Array<string>(trajectory.numAtoms);
+function writeFrameSymbols(trajectory: Trajectory, frameIndex: number, symbols: string[]) {
   for (let i = 0; i < trajectory.numAtoms; i++) {
     symbols[i] = getAtomSymbol(trajectory, frameIndex, i);
   }
-  return symbols;
 }
 
 function getMaxAtomCountsBySymbol(trajectory: Trajectory): Map<string, number> {
@@ -46,24 +44,37 @@ export class MoleculeRenderer {
 
   private trajectory: Trajectory;
   private atomMeshes = new Map<string, THREE.InstancedMesh>();
+  private atomMaterials = new Set<THREE.Material>();
+  private atomGeometries = new Set<THREE.BufferGeometry>();
   private bondMesh: THREE.InstancedMesh;
   private bondCapacity: number;
   private currentFrame = -1;
   private bondCylinderGeom = new THREE.CylinderGeometry(1, 1, 1, 8, 1);
   private atomTransform = new THREE.Object3D();
   private bondTransform = new THREE.Object3D();
+  private atomCountsBySymbol = new Map<string, number>();
+  private frameSymbolsScratch: string[];
+  private bondStart = new THREE.Vector3();
+  private bondEnd = new THREE.Vector3();
+  private bondMidpoint = new THREE.Vector3();
+  private bondDirection = new THREE.Vector3();
+  private bondUp = new THREE.Vector3(0, 1, 0);
+  private bondQuaternion = new THREE.Quaternion();
   private bondsCacheFrame = -1;
   private bondsCache: Bond[] = [];
   private computeBondsEnabled = true;
 
   constructor(trajectory: Trajectory) {
     this.trajectory = trajectory;
+    this.frameSymbolsScratch = new Array<string>(trajectory.numAtoms);
 
     for (const [symbol, maxCount] of getMaxAtomCountsBySymbol(trajectory)) {
       const info = getElementInfo(symbol);
       const geom = new THREE.SphereGeometry(info.radius * ATOM_SPHERE_SCALE, 16, 12);
       const mat = new THREE.MeshStandardMaterial({ color: info.color, roughness: 0.4, metalness: 0.05 });
       const mesh = new THREE.InstancedMesh(geom, mat, maxCount);
+      this.atomGeometries.add(geom);
+      this.atomMaterials.add(mat);
       mesh.count = 0;
       mesh.userData.symbol = symbol;
       mesh.userData.atomIndices = [];
@@ -72,6 +83,7 @@ export class MoleculeRenderer {
       // mesh can vanish once the centroid leaves the frustum. Disable it.
       mesh.frustumCulled = false;
       this.atomMeshes.set(symbol, mesh);
+      this.atomCountsBySymbol.set(symbol, 0);
       this.group.add(mesh);
     }
 
@@ -85,6 +97,29 @@ export class MoleculeRenderer {
 
     this.setFrame(0);
     this.centerOnFirstFrame();
+  }
+
+  dispose() {
+    for (const mesh of this.atomMeshes.values()) {
+      this.group.remove(mesh);
+    }
+    this.atomMeshes.clear();
+    for (const geom of this.atomGeometries) {
+      geom.dispose();
+    }
+    this.atomGeometries.clear();
+    for (const mat of this.atomMaterials) {
+      mat.dispose();
+    }
+    this.atomMaterials.clear();
+
+    this.group.remove(this.bondMesh);
+    this.bondMesh.geometry.dispose();
+    if (Array.isArray(this.bondMesh.material)) {
+      for (const mat of this.bondMesh.material) mat.dispose();
+    } else {
+      this.bondMesh.material.dispose();
+    }
   }
 
   setBondsEnabled(enabled: boolean) {
@@ -115,12 +150,11 @@ export class MoleculeRenderer {
     this.currentFrame = frameIndex;
     const { positions, numAtoms } = this.trajectory;
     const base = frameIndex * numAtoms * 3;
-    const countsBySymbol = new Map<string, number>();
-    const atomIndicesBySymbol = new Map<string, number[]>();
 
-    for (const [, mesh] of this.atomMeshes) {
+    for (const [symbol, mesh] of this.atomMeshes) {
       mesh.count = 0;
-      mesh.userData.atomIndices = [];
+      this.atomCountsBySymbol.set(symbol, 0);
+      (mesh.userData.atomIndices as number[]).length = 0;
     }
 
     for (let atomIndex = 0; atomIndex < numAtoms; atomIndex++) {
@@ -128,23 +162,19 @@ export class MoleculeRenderer {
       const mesh = this.atomMeshes.get(symbol);
       if (!mesh) continue;
 
-      const instanceIndex = countsBySymbol.get(symbol) ?? 0;
-      const indices = atomIndicesBySymbol.get(symbol) ?? [];
-      if (indices.length === 0) {
-        atomIndicesBySymbol.set(symbol, indices);
-      }
+      const instanceIndex = this.atomCountsBySymbol.get(symbol) ?? 0;
+      const indices = mesh.userData.atomIndices as number[];
 
       const off = base + atomIndex * 3;
       this.atomTransform.position.set(positions[off], positions[off + 1], positions[off + 2]);
       this.atomTransform.updateMatrix();
       mesh.setMatrixAt(instanceIndex, this.atomTransform.matrix);
-      countsBySymbol.set(symbol, instanceIndex + 1);
+      this.atomCountsBySymbol.set(symbol, instanceIndex + 1);
       indices.push(atomIndex);
     }
 
     for (const [symbol, mesh] of this.atomMeshes) {
-      mesh.count = countsBySymbol.get(symbol) ?? 0;
-      mesh.userData.atomIndices = atomIndicesBySymbol.get(symbol) ?? [];
+      mesh.count = this.atomCountsBySymbol.get(symbol) ?? 0;
       mesh.instanceMatrix.needsUpdate = true;
     }
 
@@ -155,11 +185,12 @@ export class MoleculeRenderer {
 
   private updateBonds(frameIndex: number) {
     if (this.bondsCacheFrame !== frameIndex) {
+      writeFrameSymbols(this.trajectory, frameIndex, this.frameSymbolsScratch);
       this.bondsCache = computeBonds(
         this.trajectory.positions,
         frameIndex,
         this.trajectory.numAtoms,
-        getFrameSymbols(this.trajectory, frameIndex),
+        this.frameSymbolsScratch,
       );
       this.bondsCacheFrame = frameIndex;
     }
@@ -171,33 +202,27 @@ export class MoleculeRenderer {
 
     const { positions, numAtoms } = this.trajectory;
     const base = frameIndex * numAtoms * 3;
-    const a = new THREE.Vector3();
-    const b = new THREE.Vector3();
-    const mid = new THREE.Vector3();
-    const dir = new THREE.Vector3();
-    const up = new THREE.Vector3(0, 1, 0);
-    const quat = new THREE.Quaternion();
 
     for (let i = 0; i < bonds.length; i++) {
       const bond = bonds[i];
-      a.set(
+      this.bondStart.set(
         positions[base + bond.a * 3],
         positions[base + bond.a * 3 + 1],
         positions[base + bond.a * 3 + 2],
       );
-      b.set(
+      this.bondEnd.set(
         positions[base + bond.b * 3],
         positions[base + bond.b * 3 + 1],
         positions[base + bond.b * 3 + 2],
       );
-      mid.copy(a).add(b).multiplyScalar(0.5);
-      dir.copy(b).sub(a);
-      const len = dir.length();
-      dir.normalize();
-      quat.setFromUnitVectors(up, dir);
+      this.bondMidpoint.copy(this.bondStart).add(this.bondEnd).multiplyScalar(0.5);
+      this.bondDirection.copy(this.bondEnd).sub(this.bondStart);
+      const len = this.bondDirection.length();
+      this.bondDirection.normalize();
+      this.bondQuaternion.setFromUnitVectors(this.bondUp, this.bondDirection);
 
-      this.bondTransform.position.copy(mid);
-      this.bondTransform.quaternion.copy(quat);
+      this.bondTransform.position.copy(this.bondMidpoint);
+      this.bondTransform.quaternion.copy(this.bondQuaternion);
       this.bondTransform.scale.set(BOND_RADIUS, len, BOND_RADIUS);
       this.bondTransform.updateMatrix();
       this.bondMesh.setMatrixAt(i, this.bondTransform.matrix);

@@ -44,7 +44,6 @@ export function computeBonds(
   }
 
   const bonds: Bond[] = [];
-  const seen = new Set<number>();
 
   for (let i = 0; i < numAtoms; i++) {
     const off = base + i * 3;
@@ -61,8 +60,6 @@ export function computeBonds(
           if (!bucket) continue;
           for (const j of bucket) {
             if (j <= i) continue;
-            const pairKey = i * numAtoms + j;
-            if (seen.has(pairKey)) continue;
 
             const offj = base + j * 3;
             const ddx = xi - positions[offj];
@@ -72,7 +69,6 @@ export function computeBonds(
             const cutoff = (radii[i] + radii[j]) * TOLERANCE;
             if (distSq <= cutoff * cutoff) {
               bonds.push({ a: i, b: j });
-              seen.add(pairKey);
             }
           }
         }

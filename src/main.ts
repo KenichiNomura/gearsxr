@@ -28,6 +28,8 @@ const appEl = document.getElementById("app")!;
 const uiEl = document.getElementById("ui")!;
 const statusEl = document.getElementById("status")!;
 const toggleControlsBtn = document.getElementById("toggleControlsBtn") as HTMLButtonElement;
+const collaborationEl = document.getElementById("collaboration")!;
+const toggleRoomBtn = document.getElementById("toggleRoomBtn") as HTMLButtonElement;
 const fileInput = document.getElementById("fileInput") as HTMLInputElement;
 const urlInput = document.getElementById("urlInput") as HTMLInputElement;
 const loadUrlBtn = document.getElementById("loadUrlBtn") as HTMLButtonElement;
@@ -103,6 +105,8 @@ let moleculeRenderer: MoleculeRenderer | null = null;
 let playback: Playback | null = null;
 let currentTrajectoryUrl: string | null = null;
 let pendingTrajectoryUrl: string | null = null;
+let activeTrajectoryFetch: AbortController | null = null;
+let trajectoryLoadVersion = 0;
 let applyingRemoteState = false;
 let pendingPresenterSync = false;
 let lastPresenterSyncAt = 0;
@@ -146,6 +150,7 @@ const USER_NAME_KEY = "gearsxr-user-name";
 const SERVER_BASE_KEY = "gearsxr-server-base";
 const BACKGROUND_KEY = "gearsxr-background";
 const CONTROLS_COLLAPSED_KEY = "gearsxr-controls-collapsed";
+const ROOM_COLLAPSED_KEY = "gearsxr-room-collapsed";
 const LEGACY_USER_NAME_KEY = "vr-md-viewer-user-name";
 const LEGACY_SERVER_BASE_KEY = "vr-md-viewer-server-base";
 const LEGACY_BACKGROUND_KEY = "vr-md-viewer-background";
@@ -187,7 +192,15 @@ function setControlsCollapsed(collapsed: boolean) {
   localStorage.setItem(CONTROLS_COLLAPSED_KEY, collapsed ? "1" : "0");
 }
 
+function setRoomCollapsed(collapsed: boolean) {
+  collaborationEl.classList.toggle("collapsed", collapsed);
+  toggleRoomBtn.textContent = collapsed ? "Show" : "Hide";
+  toggleRoomBtn.setAttribute("aria-expanded", String(!collapsed));
+  localStorage.setItem(ROOM_COLLAPSED_KEY, collapsed ? "1" : "0");
+}
+
 setControlsCollapsed(readStoredValue(CONTROLS_COLLAPSED_KEY, LEGACY_CONTROLS_COLLAPSED_KEY) === "1");
+setRoomCollapsed(localStorage.getItem(ROOM_COLLAPSED_KEY) !== "0");
 
 const roomFromUrl = sanitizeRoomId(urlParams.get("room") ?? "");
 roomInput.value = roomFromUrl.length >= 3 ? roomFromUrl : makeRoomId();
@@ -223,19 +236,18 @@ const collaboration = new CollaborationClient({
   },
 });
 
-function transformSignature(transform: TransformState) {
-  return [
-    ...transform.position,
-    ...transform.quaternion,
-    ...transform.scale,
-  ].map((value) => value.toFixed(5)).join(",");
+function objectTransformSignature(object: THREE.Object3D) {
+  const { position, quaternion, scale } = object;
+  return `${position.x.toFixed(5)},${position.y.toFixed(5)},${position.z.toFixed(5)},` +
+    `${quaternion.x.toFixed(5)},${quaternion.y.toFixed(5)},${quaternion.z.toFixed(5)},${quaternion.w.toFixed(5)},` +
+    `${scale.x.toFixed(5)},${scale.y.toFixed(5)},${scale.z.toFixed(5)}`;
 }
 
-function viewSignature(view: ViewState) {
-  return [
-    ...view.cameraPosition,
-    ...view.orbitTarget,
-  ].map((value) => value.toFixed(5)).join(",");
+function currentViewSignature() {
+  const { position } = camera;
+  const { target } = orbitControls;
+  return `${position.x.toFixed(5)},${position.y.toFixed(5)},${position.z.toFixed(5)},` +
+    `${target.x.toFixed(5)},${target.y.toFixed(5)},${target.z.toFixed(5)}`;
 }
 
 function getMoleculeTransform(): TransformState {
@@ -326,7 +338,7 @@ function applyMoleculeTransform(transform: TransformState) {
   moleculeRoot.quaternion.fromArray(transform.quaternion);
   moleculeRoot.scale.fromArray(transform.scale);
   moleculeRoot.updateMatrixWorld(true);
-  lastObservedTransform = transformSignature(getMoleculeTransform());
+  lastObservedTransform = objectTransformSignature(moleculeRoot);
 }
 
 function applyViewState(view: ViewState) {
@@ -336,7 +348,7 @@ function applyViewState(view: ViewState) {
   orbitControls.target.fromArray(view.orbitTarget);
   camera.updateMatrixWorld(true);
   orbitControls.update();
-  lastObservedView = viewSignature(getViewState());
+  lastObservedView = currentViewSignature();
 }
 
 function getPresenterState(): PresenterState {
@@ -450,6 +462,10 @@ toggleControlsBtn.addEventListener("click", () => {
   setControlsCollapsed(!uiEl.classList.contains("collapsed"));
 });
 
+toggleRoomBtn.addEventListener("click", () => {
+  setRoomCollapsed(!collaborationEl.classList.contains("collapsed"));
+});
+
 // Desktop click-to-select (so the measurement tool is usable without a headset).
 renderer.domElement.addEventListener("dblclick", (event: MouseEvent) => {
   if (!moleculeRenderer) return;
@@ -467,23 +483,36 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "c" || e.key === "C") measurementTool.clear();
 });
 
-async function loadTrajectoryFile(file: Blob, sourceUrl: string | null = null, broadcastState = true) {
+async function loadTrajectoryFile(
+  file: Blob,
+  sourceUrl: string | null = null,
+  broadcastState = true,
+  loadVersion = ++trajectoryLoadVersion,
+) {
+  if (!sourceUrl) {
+    activeTrajectoryFetch?.abort();
+    activeTrajectoryFetch = null;
+    pendingTrajectoryUrl = null;
+  }
   statusEl.textContent = "Parsing...";
   try {
     const trajectory = await parseExtendedXYZ(file, (p) => {
+      if (loadVersion !== trajectoryLoadVersion) return;
       const pct = ((p.bytesRead / p.totalBytes) * 100).toFixed(0);
       statusEl.textContent = `Parsing... ${pct}% (${p.framesParsed} frames)`;
     });
+    if (loadVersion !== trajectoryLoadVersion) return;
 
     if (moleculeRenderer) {
       moleculeRoot.remove(moleculeRenderer.group);
+      moleculeRenderer.dispose();
     }
     moleculeRenderer = new MoleculeRenderer(trajectory);
     moleculeRoot.add(moleculeRenderer.group);
     moleculeRoot.position.set(0, 0, 0);
     moleculeRoot.quaternion.identity();
     moleculeRoot.scale.set(1, 1, 1);
-    lastObservedTransform = transformSignature(getMoleculeTransform());
+    lastObservedTransform = objectTransformSignature(moleculeRoot);
     measurementTool.clear();
     currentTrajectoryUrl = sourceUrl;
 
@@ -501,6 +530,7 @@ async function loadTrajectoryFile(file: Blob, sourceUrl: string | null = null, b
     frameSlider.value = "0";
     frameLabel.textContent = `0 / ${trajectory.numFrames - 1}`;
     playbackEl.style.display = "block";
+    document.body.classList.add("has-playback");
 
     statusEl.textContent = `Loaded ${trajectory.numAtoms} atoms x ${trajectory.numFrames} frames`;
     if (broadcastState && collaboration.isPresenter() && !sourceUrl) {
@@ -508,6 +538,7 @@ async function loadTrajectoryFile(file: Blob, sourceUrl: string | null = null, b
     }
     if (broadcastState) markPresenterStateDirty(true);
   } catch (err) {
+    if (loadVersion !== trajectoryLoadVersion) return;
     console.error(err);
     statusEl.textContent = `Error: ${(err as Error).message}`;
   }
@@ -515,20 +546,33 @@ async function loadTrajectoryFile(file: Blob, sourceUrl: string | null = null, b
 
 async function loadTrajectoryFromUrl(url: string, broadcastState = true) {
   if (pendingTrajectoryUrl === url) return;
+  const loadVersion = ++trajectoryLoadVersion;
+  activeTrajectoryFetch?.abort();
+  const fetchController = new AbortController();
+  activeTrajectoryFetch = fetchController;
   pendingTrajectoryUrl = url;
   statusEl.textContent = "Fetching...";
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: fetchController.signal });
+    if (loadVersion !== trajectoryLoadVersion) return;
     if (!response.ok) {
       throw new Error(`HTTP ${response.status} ${response.statusText}`);
     }
     const blob = await response.blob();
-    await loadTrajectoryFile(blob, url, broadcastState);
+    if (loadVersion !== trajectoryLoadVersion) return;
+    await loadTrajectoryFile(blob, url, broadcastState, loadVersion);
   } catch (err) {
+    if (loadVersion !== trajectoryLoadVersion) return;
+    if (err instanceof DOMException && err.name === "AbortError") return;
     console.error(err);
     statusEl.textContent = `Fetch error: ${(err as Error).message}`;
   } finally {
-    pendingTrajectoryUrl = null;
+    if (activeTrajectoryFetch === fetchController) {
+      activeTrajectoryFetch = null;
+    }
+    if (pendingTrajectoryUrl === url) {
+      pendingTrajectoryUrl = null;
+    }
   }
 }
 
@@ -635,17 +679,15 @@ renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
   playback?.step(delta);
   manipulator?.update();
-  const transform = getMoleculeTransform();
-  const signature = transformSignature(transform);
+  const signature = objectTransformSignature(moleculeRoot);
   if (signature !== lastObservedTransform) {
     lastObservedTransform = signature;
     markPresenterStateDirty();
   }
   if (!renderer.xr.isPresenting) {
-    const view = getViewState();
-    const currentViewSignature = viewSignature(view);
-    if (currentViewSignature !== lastObservedView) {
-      lastObservedView = currentViewSignature;
+    const signature = currentViewSignature();
+    if (signature !== lastObservedView) {
+      lastObservedView = signature;
       markPresenterStateDirty();
     }
   }
