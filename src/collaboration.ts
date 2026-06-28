@@ -88,17 +88,6 @@ export function makeRoomId() {
   return Math.random().toString(36).slice(2, 8);
 }
 
-export function makeShareUrl(roomId: string, serverBase = "") {
-  const url = new URL(location.href);
-  url.searchParams.set("room", roomId);
-  if (serverBase.trim()) {
-    url.searchParams.set(SERVER_PARAM, normalizeWebSocketBase(serverBase));
-  } else {
-    url.searchParams.delete(SERVER_PARAM);
-  }
-  return url.toString();
-}
-
 function isLoopbackHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
 }

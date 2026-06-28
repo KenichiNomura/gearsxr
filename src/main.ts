@@ -16,7 +16,6 @@ import {
   CollaborationClient,
   defaultWebSocketBase,
   makeRoomId,
-  makeShareUrl,
   normalizeWebSocketBase,
   sanitizeRoomId,
   type PresenterState,
@@ -45,10 +44,9 @@ const fpsInput = document.getElementById("fpsInput") as HTMLInputElement;
 const roomInput = document.getElementById("roomInput") as HTMLInputElement;
 const userNameInput = document.getElementById("userNameInput") as HTMLInputElement;
 const serverInput = document.getElementById("serverInput") as HTMLInputElement;
+const copyRoomCodeBtn = document.getElementById("copyRoomCodeBtn") as HTMLButtonElement;
 const joinRoomBtn = document.getElementById("joinRoomBtn") as HTMLButtonElement;
 const leaveRoomBtn = document.getElementById("leaveRoomBtn") as HTMLButtonElement;
-const roomLink = document.getElementById("roomLink") as HTMLInputElement;
-const copyRoomLinkBtn = document.getElementById("copyRoomLinkBtn") as HTMLButtonElement;
 const takePresenterBtn = document.getElementById("takePresenterBtn") as HTMLButtonElement;
 const collabStatusEl = document.getElementById("collabStatus")!;
 
@@ -383,14 +381,13 @@ function flushPresenterState(force = false) {
   lastPresenterSyncAt = now;
 }
 
-function updateRoomLink() {
+function updateRoomCodeUi() {
   const roomId = sanitizeRoomId(roomInput.value);
-  roomLink.value = roomId.length >= 3 ? makeShareUrl(roomId, serverInput.value) : "";
-  copyRoomLinkBtn.disabled = !roomLink.value;
+  copyRoomCodeBtn.disabled = roomId.length < 3;
 }
 
 function updateCollaborationUi() {
-  updateRoomLink();
+  updateRoomCodeUi();
   const connected = collaboration.isConnected();
   const connecting = collaboration.connectionStatus === "connecting";
   const presenter = collaboration.users.find((user) => user.id === collaboration.presenterId);
@@ -654,8 +651,8 @@ backgroundSelect.addEventListener("change", () => {
   void setSceneBackground(backgroundSelect.value, { broadcastState: true, persist: true });
 });
 
-roomInput.addEventListener("input", updateRoomLink);
-serverInput.addEventListener("input", updateRoomLink);
+roomInput.addEventListener("input", updateRoomCodeUi);
+serverInput.addEventListener("input", updateRoomCodeUi);
 
 joinRoomBtn.addEventListener("click", () => {
   const roomId = sanitizeRoomId(roomInput.value) || makeRoomId();
@@ -665,7 +662,7 @@ joinRoomBtn.addEventListener("click", () => {
   localStorage.setItem(USER_NAME_KEY, userNameInput.value.trim());
   localStorage.setItem(SERVER_BASE_KEY, serverBase);
   collaboration.connect(roomId, userNameInput.value, serverBase);
-  updateRoomLink();
+  updateRoomCodeUi();
 });
 
 leaveRoomBtn.addEventListener("click", () => {
@@ -677,14 +674,16 @@ takePresenterBtn.addEventListener("click", () => {
   collaboration.takePresenter();
 });
 
-copyRoomLinkBtn.addEventListener("click", async () => {
-  updateRoomLink();
-  if (!roomLink.value) return;
+copyRoomCodeBtn.addEventListener("click", async () => {
+  const roomId = sanitizeRoomId(roomInput.value);
+  if (roomId.length < 3) return;
+  roomInput.value = roomId;
+  updateRoomCodeUi();
   try {
-    await navigator.clipboard.writeText(roomLink.value);
-    collabStatusEl.textContent = `${collabStatusEl.textContent}\nLink copied`;
+    await navigator.clipboard.writeText(roomId);
+    collabStatusEl.textContent = `${collabStatusEl.textContent}\nRoom code copied`;
   } catch {
-    roomLink.select();
+    roomInput.select();
   }
 });
 

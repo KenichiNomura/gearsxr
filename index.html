@@ -43,6 +43,12 @@
       #collaboration label { display: block; font-size: 12px; margin: 6px 0 2px; }
       #collaboration input[type="text"] { width: 100%; box-sizing: border-box; font-size: 12px; margin-top: 4px; }
       #collaboration button { margin-right: 6px; margin-top: 4px; font-size: 12px; cursor: pointer; }
+      #roomInput {
+        font-size: 20px !important; font-weight: 700; letter-spacing: 0.08em;
+        text-transform: lowercase; text-align: center;
+      }
+      .roomActions { margin-top: 6px; }
+      .roomHint { font-size: 11px; opacity: 0.72; margin-top: 6px; line-height: 1.35; }
       #toggleRoomBtn {
         flex: 0 0 auto; margin: 0 !important; padding: 2px 8px;
         color: #eee; background: rgba(255,255,255,0.08);
@@ -75,7 +81,6 @@
       .row { display: flex; gap: 6px; align-items: center; }
       .row input[type="text"] { flex: 1; min-width: 0; }
       .row button { flex: 0 0 auto; }
-      #roomLink { opacity: 0.82; }
       #collabStatus { font-size: 11px; opacity: 0.82; margin-top: 6px; white-space: pre-line; }
       @media (max-width: 760px) {
         body.has-playback #collaboration { bottom: 128px; }
@@ -106,21 +111,20 @@
         <button id="toggleRoomBtn" type="button" aria-controls="roomContent" aria-expanded="true">Hide</button>
       </div>
       <div id="roomContent">
-        <label for="roomInput">Room</label>
+        <label for="roomInput">Room code</label>
         <div class="row">
           <input id="roomInput" type="text" spellcheck="false" />
+          <button id="copyRoomCodeBtn" disabled>Copy Code</button>
+        </div>
+        <div class="roomActions">
           <button id="joinRoomBtn">Join</button>
           <button id="leaveRoomBtn" disabled>Leave</button>
         </div>
+        <div class="roomHint">Share this short code. Other users open GEARS XR, type the same code, and click Join.</div>
         <label for="userNameInput">Name</label>
         <input id="userNameInput" type="text" spellcheck="false" />
         <label for="serverInput">Room server</label>
         <input id="serverInput" type="text" spellcheck="false" />
-        <label for="roomLink">Share</label>
-        <div class="row">
-          <input id="roomLink" type="text" readonly placeholder="Join a room" />
-          <button id="copyRoomLinkBtn" disabled>Copy</button>
-        </div>
         <div>
           <button id="takePresenterBtn" disabled>Take Presenter</button>
         </div>

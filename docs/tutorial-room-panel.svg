@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="800" viewBox="0 0 1100 800" role="img" aria-labelledby="title desc">
   <title id="title">Room collaboration panel controls</title>
-  <desc id="desc">Clean annotated schematic of the GEARS XR room panel for joining, sharing, and taking presenter control.</desc>
+  <desc id="desc">Clean annotated schematic of the GEARS XR room panel for joining with a short room code and taking presenter control.</desc>
   <defs>
     <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0b1220" flood-opacity="0.16"/></filter>
     <style>
@@ -23,7 +23,7 @@
   </defs>
   <rect class="page" width="1100" height="800"/>
   <text x="54" y="62" fill="#0f172a" font="800 28px system-ui, sans-serif">Room panel: share a synchronized view</text>
-  <text x="54" y="88" fill="#64748b" font="16px system-ui, sans-serif">Open the collapsed room panel, join a room, copy the link, and manage presenter control.</text>
+  <text x="54" y="88" fill="#64748b" font="16px system-ui, sans-serif">Open the collapsed room panel, share the short room code, join a room, and manage presenter control.</text>
 
   <g transform="translate(70 128)">
     <rect class="mock" width="450" height="530" rx="18"/>
@@ -32,30 +32,28 @@
     <text class="buttonText" x="371" y="44">Hide</text>
     <circle class="badge" cx="430" cy="20" r="18"/><text class="badgeText" x="430" y="21">0</text>
 
-    <text class="label" x="28" y="96">Room</text>
-    <rect class="field" x="28" y="114" width="190" height="40" rx="6"/>
-    <text class="muted" x="44" y="139">1axcj2</text>
-    <rect class="button" x="232" y="114" width="70" height="40" rx="7"/>
-    <text class="buttonText" x="250" y="139">Join</text>
-    <rect class="button" x="314" y="114" width="80" height="40" rx="7"/>
-    <text class="buttonText" x="333" y="139">Leave</text>
+    <text class="label" x="28" y="96">Room code</text>
+    <rect class="field" x="28" y="114" width="210" height="46" rx="6"/>
+    <text class="title" x="72" y="146" font-size="24">1axcj2</text>
+    <rect class="button" x="252" y="114" width="124" height="46" rx="7"/>
+    <text class="buttonText" x="276" y="143">Copy Code</text>
     <circle class="badge" cx="22" cy="116" r="18"/><text class="badgeText" x="22" y="117">1</text>
-    <circle class="badge" cx="232" cy="116" r="18"/><text class="badgeText" x="232" y="117">2</text>
+    <circle class="badge" cx="252" cy="116" r="18"/><text class="badgeText" x="252" y="117">2</text>
 
-    <text class="label" x="28" y="196">Name</text>
-    <rect class="field" x="28" y="214" width="366" height="40" rx="6"/>
-    <text class="muted" x="44" y="239">Kenichi</text>
-    <text class="label" x="28" y="296">Room server</text>
+    <rect class="button" x="28" y="180" width="70" height="40" rx="7"/>
+    <text class="buttonText" x="46" y="205">Join</text>
+    <rect class="button" x="110" y="180" width="80" height="40" rx="7"/>
+    <text class="buttonText" x="129" y="205">Leave</text>
+    <text class="muted" x="28" y="246">Share this code with other users.</text>
+    <circle class="badge" cx="28" cy="180" r="18"/><text class="badgeText" x="28" y="181">3</text>
+
+    <text class="label" x="28" y="296">Name</text>
     <rect class="field" x="28" y="314" width="366" height="40" rx="6"/>
-    <text class="muted" x="44" y="339">wss://vr-md-viewer-room...</text>
-    <circle class="badge" cx="22" cy="216" r="18"/><text class="badgeText" x="22" y="217">3</text>
-
-    <text class="label" x="28" y="396">Share</text>
-    <rect class="field" x="28" y="414" width="274" height="40" rx="6"/>
-    <text class="muted" x="44" y="439">https://.../?room=1axcj2</text>
-    <rect class="button" x="314" y="414" width="80" height="40" rx="7"/>
-    <text class="buttonText" x="336" y="439">Copy</text>
-    <circle class="badge" cx="314" cy="416" r="18"/><text class="badgeText" x="314" y="417">4</text>
+    <text class="muted" x="44" y="339">Kenichi</text>
+    <text class="label" x="28" y="396">Room server</text>
+    <rect class="field" x="28" y="414" width="366" height="40" rx="6"/>
+    <text class="muted" x="44" y="439">wss://vr-md-viewer-room...</text>
+    <circle class="badge" cx="22" cy="316" r="18"/><text class="badgeText" x="22" y="317">4</text>
 
     <rect class="button" x="58" y="474" width="154" height="40" rx="7"/>
     <text class="buttonText" x="78" y="499">Take Presenter</text>
@@ -78,18 +76,18 @@
     </g>
     <g transform="translate(30 204)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">2</text>
-      <text class="legendTitle" x="48" y="14">Join / Leave</text>
-      <text class="legendText" x="48" y="38">Connect or disconnect from the room.</text>
+      <text class="legendTitle" x="48" y="14">Copy Code</text>
+      <text class="legendText" x="48" y="38">Send or read this code to another user.</text>
     </g>
     <g transform="translate(30 268)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">3</text>
-      <text class="legendTitle" x="48" y="14">Name and server</text>
-      <text class="legendText" x="48" y="38">Use wss:// on the hosted app.</text>
+      <text class="legendTitle" x="48" y="14">Join / Leave</text>
+      <text class="legendText" x="48" y="38">Connect or disconnect from the room.</text>
     </g>
     <g transform="translate(30 332)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">4</text>
-      <text class="legendTitle" x="48" y="14">Copy share link</text>
-      <text class="legendText" x="48" y="38">Send the link to another user.</text>
+      <text class="legendTitle" x="48" y="14">Name and server</text>
+      <text class="legendText" x="48" y="38">Use the same room server.</text>
     </g>
     <g transform="translate(30 396)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">5</text>
@@ -100,6 +98,6 @@
 
   <g transform="translate(70 694)">
     <rect class="tip" width="954" height="58" rx="14"/>
-    <text class="tipText" x="24" y="36">Only lightweight viewing state is shared. Each browser loads the XYZ file locally from the URL.</text>
+    <text class="tipText" x="24" y="36">Share the short code. Only lightweight viewing state is shared; each browser loads the XYZ file from the URL.</text>
   </g>
 </svg>

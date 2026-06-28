@@ -97,17 +97,17 @@ Multiuser rooms synchronize lightweight viewing state. Each user renders the mol
 1. Open the hosted viewer.
 2. Load a trajectory with **Load URL**.
 3. Click **Show** in the bottom-right **Room** panel.
-4. In the **Room** field, keep the generated room code or type your own short code.
+4. In the **Room code** field, keep the generated code or type your own short code.
 5. Type your display name in **Name**.
-6. Keep the default deployed room server:
+6. Keep the default deployed room server. Other users should use the same server:
 
    ```text
    wss://vr-md-viewer-room.kenichi-nomura.workers.dev
    ```
 
 7. Click **Join**.
-8. Click **Copy** under **Share** and send the link to another user.
-9. The other user opens the share link, clicks **Show** if needed, and clicks **Join**.
+8. Click **Copy Code** and send or read the short room code to another user.
+9. The other user opens GEARS XR, clicks **Show** if needed, types the same room code, and clicks **Join**.
 
 The first user in the room becomes the presenter. The presenter controls playback, FPS, background, molecule position, molecule rotation, molecule scale, and desktop camera view. Other users follow the presenter.
 
@@ -150,3 +150,7 @@ On desktop, click atoms to measure. Selecting two atoms reports a distance; sele
 - **A follower cannot control the scene:** click **Take Presenter** first.
 - **FPS does not change for followers:** only the presenter can change shared FPS.
 - **VR button says not supported:** use a WebXR-compatible headset browser over HTTPS.
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
