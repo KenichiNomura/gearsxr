@@ -4,8 +4,6 @@ GEARS XR is a browser-based molecular dynamics trajectory viewer for extended XY
 
 [Open the viewer](https://kenichinomura.github.io/gearsxr/)
 
-[Tutorial: loading XYZ files and using multiuser rooms](docs/tutorial.md)
-
 ![GEARS XR screenshot](docs/screenshot.png)
 
 ## Features
@@ -21,7 +19,40 @@ GEARS XR is a browser-based molecular dynamics trajectory viewer for extended XY
 - Select atoms to measure distances and angles.
 - Join a lightweight multiuser room to share trajectory URL, frame, playback, and view state.
 
-## Supported XYZ Format
+## Window Layout
+
+GEARS XR opens with the molecule scene in the center, the main loading panel at the top-left, the **Enter VR** button at the top-right, the playback panel at the bottom-left after a trajectory is loaded, and the room panel at the bottom-right.
+
+![Schematic of the full GEARS XR window](docs/tutorial-window-layout.svg)
+
+The room panel is collapsed by default. Click **Show** in the bottom-right **Room** panel when you want to join or share a multiuser room.
+
+## Try the Demo
+
+1. Open the hosted viewer:
+
+   [https://kenichinomura.github.io/gearsxr/](https://kenichinomura.github.io/gearsxr/)
+
+2. The URL field is prefilled with the bundled demo trajectory:
+
+   ```text
+   https://kenichinomura.github.io/gearsxr/samples/tobe.xyz
+   ```
+
+3. Click **Load URL**.
+4. Use the bottom-left playback panel's frame slider, **Play**, step buttons, and **FPS** field to inspect the trajectory.
+5. Choose a **Background** if you want a different VR room environment.
+6. Click **Hide** to collapse the controls and leave more space for the molecule.
+
+The default background is **Dark Cyberspace**, which keeps atom colors easy to see.
+
+![Background options](docs/tutorial-backgrounds.jpg)
+
+## Main Panel: Load Files And Backgrounds
+
+Use the top-left main panel to load trajectories and choose the visual background.
+
+![Schematic of the main loading panel](docs/tutorial-main-panel.svg)
 
 The viewer supports standard XYZ and extended XYZ trajectory files:
 
@@ -34,87 +65,88 @@ Element x y z ...
 
 For extended XYZ files, the parser reads `Properties=...` metadata to find species, position, and atom-ID columns. When atom IDs are present, each frame is reordered to the first frame's ID order so atom identity stays stable across the trajectory. Atom types are stored per frame, so color and bond-radius logic follow the current frame rather than only the first frame.
 
-The bundled default sample is `public/samples/tobe.xyz`.
+There are three ways to load a file:
 
-## How To Use
+- Click **Choose File** and select a local `.xyz` file.
+- Drag and drop a `.xyz` file onto the page.
+- Paste a direct file URL into **Or load from a URL**, then click **Load URL**.
 
-Open the hosted app:
+For single-user viewing, all three methods work. For multiuser rooms, use **Load URL** because local files are not sent to other users.
 
-[https://kenichinomura.github.io/gearsxr/](https://kenichinomura.github.io/gearsxr/)
+Use **Background** to switch between bundled 360-degree VR backgrounds. Use **Hide** to collapse the main panel and **Show** to reopen it.
 
-Click **Load URL** to load the default sample trajectory, or choose/drag-drop your own `.xyz` file. Use the frame slider, step buttons, and play button to inspect the trajectory over time.
+## Playback Panel: Frames, Play, And FPS
 
-Double-click atoms on desktop, or select atoms in VR, to show measurements. Selecting two atoms reports a distance; selecting three reports an angle. Press `c` to clear measurements.
+The playback panel appears at the bottom-left after a trajectory loads.
 
-## Multiuser Rooms
+![Schematic of the playback panel](docs/tutorial-playback-panel.svg)
 
-The viewer can join a shared room through a WebSocket room server. Each browser loads the same trajectory locally from a URL; the room only synchronizes lightweight state such as the current frame, play/pause state, FPS, background, presenter, molecule transform, and desktop camera view.
+- Drag the frame slider to inspect a specific frame.
+- Click **Play** to animate the trajectory; the button becomes **Pause** while playing.
+- Click **<** or **>** to step backward or forward one frame.
+- Type a number in **FPS** to change playback speed.
 
-For desktop testing across browsers on the same network, use the HTTP app URL and WebSocket server URL shown by the dev servers:
+In a multiuser room, only the presenter can control playback. Followers receive the presenter's frame, play/pause state, and FPS.
 
-```text
-App:         http://<computer-ip>:5174/
-Room server: ws://<computer-ip>:8787
-```
+## Room Panel: Multiuser Viewing
 
-For WebXR or the hosted GitHub Pages page, use HTTPS with a secure WebSocket server:
+Multiuser rooms synchronize lightweight viewing state. Each user renders the molecule locally, while the room shares the trajectory URL, frame, play/pause state, FPS, background, presenter, molecule transform, and desktop camera view.
 
-```text
-App:         https://kenichinomura.github.io/gearsxr/
-Room server: wss://...workers.dev
-```
+![Schematic of the room collaboration panel](docs/tutorial-room-panel.svg)
 
-The first user in a room becomes the presenter. The presenter controls the shared frame, playback, and view. Other users follow the presenter until they click **Take Presenter**.
+1. Open the hosted viewer.
+2. Load a trajectory with **Load URL**.
+3. Click **Show** in the bottom-right **Room** panel.
+4. In the **Room** field, keep the generated room code or type your own short code.
+5. Type your display name in **Name**.
+6. Keep the default deployed room server:
 
-Local file loads are not sent through the room. Use **Load URL** for trajectories that should appear for other users.
+   ```text
+   wss://vr-md-viewer-room.kenichi-nomura.workers.dev
+   ```
 
-## VR Usage
+7. Click **Join**.
+8. Click **Copy** under **Share** and send the link to another user.
+9. The other user opens the share link, clicks **Show** if needed, and clicks **Join**.
 
-Use the hosted HTTPS page for VR:
+The first user in the room becomes the presenter. The presenter controls playback, FPS, background, molecule position, molecule rotation, molecule scale, and desktop camera view. Other users follow the presenter.
 
-[https://kenichinomura.github.io/gearsxr/](https://kenichinomura.github.io/gearsxr/)
+To transfer control, another user clicks **Take Presenter**.
 
-If the browser supports WebXR `immersive-vr`, the page shows an **Enter VR** button. In VR, use the controllers to grab, move, and scale the molecule.
+## Use a Custom XYZ File in a Room
 
-Opening the app from `file://` is fine for desktop previewing, but it is not suitable for WebXR VR sessions.
+For everyone in a room to see the same trajectory, the file must be reachable by every browser.
 
-## Browser And Headset Compatibility
+Good options:
 
-Desktop viewing works in modern browsers with WebGL.
+- A file hosted on GitHub Pages.
+- A direct HTTPS file URL from a web server.
+- A public file URL with browser-accessible CORS headers.
 
-VR mode requires:
+Avoid using **Choose File** for a room demo. Local file loading only affects your own browser, so other room members will wait for a trajectory URL.
 
-- A WebXR-compatible browser.
-- A headset/runtime exposed to the browser as an `immersive-vr` device.
-- A secure context, such as the hosted HTTPS page.
+## VR And Measurements
 
-Quest Browser should work from the hosted page. Windows Mixed Reality support depends on the Windows version, browser, and active XR runtime.
+Use the **Enter VR** button at the top-right for headset viewing. Measurements work on desktop and in VR.
 
-## Known Limitations
+![Schematic of the Enter VR and measurement controls](docs/tutorial-vr-button.svg)
 
-- Variable atom counts across frames are not supported.
-- Periodic-boundary unwrap/rewrap controls are not implemented yet.
-- Bond detection is heuristic and based on covalent radii.
-- Very large trajectories may take time to parse in browser memory.
-- Multiuser rooms share trajectory URLs and interaction state, not local file contents.
-- The room server is intended for small rooms and currently limits rooms to six users.
+VR requires a WebXR-compatible browser and a secure HTTPS page.
 
-## Room Server Notes
+1. Open the hosted viewer in a WebXR browser, such as Quest Browser.
+2. Load the demo trajectory or another URL-based XYZ trajectory.
+3. Click **Enter VR** in the top-right corner.
+4. Use VR controllers to grab, move, and scale the molecule.
+5. Select atoms in VR to measure distances and angles.
 
-The room server is a Cloudflare Worker with a Durable Object per room. It includes basic guardrails for public demo use:
+If **Enter VR** does not appear, the current browser or device is not exposing an `immersive-vr` WebXR session to the page.
 
-- allowed-origin checks
-- maximum users per room
-- maximum WebSocket message size
-- per-client message rate limits
+On desktop, click atoms to measure. Selecting two atoms reports a distance; selecting three atoms reports an angle. Press `c` to clear measurements.
 
-Room state is temporary and should be treated as shared with everyone who has the room link.
+## Quick Troubleshooting
 
-## Tech Stack
-
-- Three.js
-- WebXR
-- Vite
-- TypeScript
-- Cloudflare Workers
-- Cloudflare Durable Objects
+- **Room stays on Connecting:** check that the room server starts with `wss://` on the hosted HTTPS page.
+- **Other users do not see my molecule:** load the trajectory with **Load URL**, not **Choose File**.
+- **A follower cannot control the scene:** click **Take Presenter** first.
+- **FPS does not change for followers:** only the presenter can change shared FPS.
+- **VR button says not supported:** use a WebXR-compatible headset browser over HTTPS.
