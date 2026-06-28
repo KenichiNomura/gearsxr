@@ -225,14 +225,14 @@ export default {
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>VR MD Viewer Room Server</title>
+    <title>GEARS XR Room Server</title>
     <style>
       body { margin: 2rem; font-family: system-ui, sans-serif; line-height: 1.5; color: #1f2937; }
       code { background: #f3f4f6; border-radius: 4px; padding: 0.1rem 0.25rem; }
     </style>
   </head>
   <body>
-    <h1>VR MD Viewer Room Server</h1>
+    <h1>GEARS XR Room Server</h1>
     <p>Status: running</p>
     <p>Health check: <a href="/health"><code>/health</code></a></p>
     <p>WebSocket rooms connect at <code>/room/{roomId}</code>.</p>

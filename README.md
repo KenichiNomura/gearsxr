@@ -1,12 +1,12 @@
-# VR MD Viewer
+# GEARS XR
 
-A browser-based molecular dynamics trajectory viewer for extended XYZ files, with desktop controls and WebXR support for virtual reality headsets.
+GEARS XR is a browser-based molecular dynamics trajectory viewer for extended XYZ files, with desktop controls and WebXR support for virtual reality headsets.
 
-[Open the viewer](https://kenichinomura.github.io/vr-md-viewer/)
+[Open the viewer](https://kenichinomura.github.io/gearsxr/)
 
 [Tutorial: loading XYZ files and using multiuser rooms](docs/tutorial.md)
 
-![MD Trajectory VR Viewer screenshot](docs/screenshot.png)
+![GEARS XR screenshot](docs/screenshot.png)
 
 ## Features
 
@@ -40,7 +40,7 @@ The bundled default sample is `public/samples/tobe.xyz`.
 
 Open the hosted app:
 
-[https://kenichinomura.github.io/vr-md-viewer/](https://kenichinomura.github.io/vr-md-viewer/)
+[https://kenichinomura.github.io/gearsxr/](https://kenichinomura.github.io/gearsxr/)
 
 Click **Load URL** to load the default sample trajectory, or choose/drag-drop your own `.xyz` file. Use the frame slider, step buttons, and play button to inspect the trajectory over time.
 
@@ -60,7 +60,7 @@ Room server: ws://<computer-ip>:8787
 For WebXR or the hosted GitHub Pages page, use HTTPS with a secure WebSocket server:
 
 ```text
-App:         https://kenichinomura.github.io/vr-md-viewer/
+App:         https://kenichinomura.github.io/gearsxr/
 Room server: wss://...workers.dev
 ```
 
@@ -72,7 +72,7 @@ Local file loads are not sent through the room. Use **Load URL** for trajectorie
 
 Use the hosted HTTPS page for VR:
 
-[https://kenichinomura.github.io/vr-md-viewer/](https://kenichinomura.github.io/vr-md-viewer/)
+[https://kenichinomura.github.io/gearsxr/](https://kenichinomura.github.io/gearsxr/)
 
 If the browser supports WebXR `immersive-vr`, the page shows an **Enter VR** button. In VR, use the controllers to grab, move, and scale the molecule.
 

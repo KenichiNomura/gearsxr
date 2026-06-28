@@ -142,15 +142,31 @@ for (const controller of manipulator.getControllers()) {
   setupSelectionRaycast(controller);
 }
 
-const USER_NAME_KEY = "vr-md-viewer-user-name";
-const SERVER_BASE_KEY = "vr-md-viewer-server-base";
-const BACKGROUND_KEY = "vr-md-viewer-background";
-const CONTROLS_COLLAPSED_KEY = "vr-md-viewer-controls-collapsed";
+const USER_NAME_KEY = "gearsxr-user-name";
+const SERVER_BASE_KEY = "gearsxr-server-base";
+const BACKGROUND_KEY = "gearsxr-background";
+const CONTROLS_COLLAPSED_KEY = "gearsxr-controls-collapsed";
+const LEGACY_USER_NAME_KEY = "vr-md-viewer-user-name";
+const LEGACY_SERVER_BASE_KEY = "vr-md-viewer-server-base";
+const LEGACY_BACKGROUND_KEY = "vr-md-viewer-background";
+const LEGACY_CONTROLS_COLLAPSED_KEY = "vr-md-viewer-controls-collapsed";
+
+function readStoredValue(key: string, legacyKey: string): string | null {
+  const value = localStorage.getItem(key);
+  if (value !== null) return value;
+
+  const legacyValue = localStorage.getItem(legacyKey);
+  if (legacyValue !== null) {
+    localStorage.setItem(key, legacyValue);
+  }
+  return legacyValue;
+}
+
 const urlParams = new URLSearchParams(location.search);
 const backgroundFromUrl = urlParams.get("background");
 let currentBackgroundId = backgroundFromUrl
   ? normalizeBackgroundId(backgroundFromUrl)
-  : normalizeBackgroundId(localStorage.getItem(BACKGROUND_KEY) ?? DEFAULT_BACKGROUND_ID);
+  : normalizeBackgroundId(readStoredValue(BACKGROUND_KEY, LEGACY_BACKGROUND_KEY) ?? DEFAULT_BACKGROUND_ID);
 let appliedBackgroundId = "";
 let backgroundLoadVersion = 0;
 const backgroundLoader = new THREE.TextureLoader();
@@ -171,12 +187,14 @@ function setControlsCollapsed(collapsed: boolean) {
   localStorage.setItem(CONTROLS_COLLAPSED_KEY, collapsed ? "1" : "0");
 }
 
-setControlsCollapsed(localStorage.getItem(CONTROLS_COLLAPSED_KEY) === "1");
+setControlsCollapsed(readStoredValue(CONTROLS_COLLAPSED_KEY, LEGACY_CONTROLS_COLLAPSED_KEY) === "1");
 
 const roomFromUrl = sanitizeRoomId(urlParams.get("room") ?? "");
 roomInput.value = roomFromUrl.length >= 3 ? roomFromUrl : makeRoomId();
-userNameInput.value = localStorage.getItem(USER_NAME_KEY) ?? `User ${Math.floor(1000 + Math.random() * 9000)}`;
-serverInput.value = normalizeWebSocketBase(urlParams.get("server") ?? localStorage.getItem(SERVER_BASE_KEY) ?? defaultWebSocketBase());
+userNameInput.value = readStoredValue(USER_NAME_KEY, LEGACY_USER_NAME_KEY) ?? `User ${Math.floor(1000 + Math.random() * 9000)}`;
+serverInput.value = normalizeWebSocketBase(
+  urlParams.get("server") ?? readStoredValue(SERVER_BASE_KEY, LEGACY_SERVER_BASE_KEY) ?? defaultWebSocketBase()
+);
 
 const collaboration = new CollaborationClient({
   onSnapshot: (message) => {

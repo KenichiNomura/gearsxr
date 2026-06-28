@@ -1,10 +1,10 @@
-# VR MD Viewer Tutorial
+# GEARS XR Tutorial
 
 This tutorial shows how to try the demo trajectory, load your own XYZ file, and start a shared multiuser room.
 
 Open the viewer here:
 
-[https://kenichinomura.github.io/vr-md-viewer/](https://kenichinomura.github.io/vr-md-viewer/)
+[https://kenichinomura.github.io/gearsxr/](https://kenichinomura.github.io/gearsxr/)
 
 ![Demo trajectory in the viewer](tutorial-demo-view.png)
 
@@ -14,7 +14,7 @@ Open the viewer here:
 2. The URL field is prefilled with the bundled demo trajectory:
 
    ```text
-   https://kenichinomura.github.io/vr-md-viewer/samples/tobe.xyz
+   https://kenichinomura.github.io/gearsxr/samples/tobe.xyz
    ```
 
 3. Click **Load URL**.
