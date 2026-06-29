@@ -1,6 +1,6 @@
 # GEARS XR
 
-GEARS XR is a browser-based molecular dynamics trajectory viewer for extended XYZ files, with desktop controls and WebXR support for virtual reality headsets.
+GEARS XR (Extended Reality) is a browser-based molecular dynamics trajectory viewer for extended XYZ files, with desktop controls and WebXR support for virtual reality headsets.
 
 [Open the viewer](https://gearsxr.space/)
 
