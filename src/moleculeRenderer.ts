@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Trajectory } from "./xyzParser";
 import { getElementInfo } from "./elements";
-import { computeBonds, type Bond } from "./bonds";
+import { computeBonds } from "./bonds";
 
 const ATOM_SPHERE_SCALE = 0.35; // shrink covalent radius for a ball-and-stick look
 const BOND_RADIUS = 0.08;
@@ -44,15 +44,12 @@ export class MoleculeRenderer {
 
   private trajectory: Trajectory;
   private atomMeshes = new Map<string, THREE.InstancedMesh>();
-  private atomMaterials = new Set<THREE.Material>();
-  private atomGeometries = new Set<THREE.BufferGeometry>();
   private bondMesh: THREE.InstancedMesh;
   private bondCapacity: number;
   private currentFrame = -1;
   private bondCylinderGeom = new THREE.CylinderGeometry(1, 1, 1, 8, 1);
   private atomTransform = new THREE.Object3D();
   private bondTransform = new THREE.Object3D();
-  private atomCountsBySymbol = new Map<string, number>();
   private frameSymbolsScratch: string[];
   private bondStart = new THREE.Vector3();
   private bondEnd = new THREE.Vector3();
@@ -60,9 +57,6 @@ export class MoleculeRenderer {
   private bondDirection = new THREE.Vector3();
   private bondUp = new THREE.Vector3(0, 1, 0);
   private bondQuaternion = new THREE.Quaternion();
-  private bondsCacheFrame = -1;
-  private bondsCache: Bond[] = [];
-  private computeBondsEnabled = true;
 
   constructor(trajectory: Trajectory) {
     this.trajectory = trajectory;
@@ -73,8 +67,6 @@ export class MoleculeRenderer {
       const geom = new THREE.SphereGeometry(info.radius * ATOM_SPHERE_SCALE, 16, 12);
       const mat = new THREE.MeshStandardMaterial({ color: info.color, roughness: 0.4, metalness: 0.05 });
       const mesh = new THREE.InstancedMesh(geom, mat, maxCount);
-      this.atomGeometries.add(geom);
-      this.atomMaterials.add(mat);
       mesh.count = 0;
       mesh.userData.symbol = symbol;
       mesh.userData.atomIndices = [];
@@ -83,7 +75,6 @@ export class MoleculeRenderer {
       // mesh can vanish once the centroid leaves the frustum. Disable it.
       mesh.frustumCulled = false;
       this.atomMeshes.set(symbol, mesh);
-      this.atomCountsBySymbol.set(symbol, 0);
       this.group.add(mesh);
     }
 
@@ -100,37 +91,12 @@ export class MoleculeRenderer {
   }
 
   dispose() {
-    for (const mesh of this.atomMeshes.values()) {
+    for (const mesh of [...this.atomMeshes.values(), this.bondMesh]) {
       this.group.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
     }
     this.atomMeshes.clear();
-    for (const geom of this.atomGeometries) {
-      geom.dispose();
-    }
-    this.atomGeometries.clear();
-    for (const mat of this.atomMaterials) {
-      mat.dispose();
-    }
-    this.atomMaterials.clear();
-
-    this.group.remove(this.bondMesh);
-    this.bondMesh.geometry.dispose();
-    if (Array.isArray(this.bondMesh.material)) {
-      for (const mat of this.bondMesh.material) mat.dispose();
-    } else {
-      this.bondMesh.material.dispose();
-    }
-  }
-
-  setBondsEnabled(enabled: boolean) {
-    this.computeBondsEnabled = enabled;
-    if (!enabled) {
-      this.bondMesh.count = 0;
-      this.bondMesh.instanceMatrix.needsUpdate = true;
-    } else {
-      this.bondsCacheFrame = -1;
-      this.setFrame(this.currentFrame, true);
-    }
   }
 
   private centerOnFirstFrame() {
@@ -145,15 +111,14 @@ export class MoleculeRenderer {
     this.group.position.set(-center.x, -center.y, -center.z);
   }
 
-  setFrame(frameIndex: number, force = false) {
-    if (!force && frameIndex === this.currentFrame) return;
+  setFrame(frameIndex: number) {
+    if (frameIndex === this.currentFrame) return;
     this.currentFrame = frameIndex;
     const { positions, numAtoms } = this.trajectory;
     const base = frameIndex * numAtoms * 3;
 
-    for (const [symbol, mesh] of this.atomMeshes) {
+    for (const mesh of this.atomMeshes.values()) {
       mesh.count = 0;
-      this.atomCountsBySymbol.set(symbol, 0);
       (mesh.userData.atomIndices as number[]).length = 0;
     }
 
@@ -162,39 +127,29 @@ export class MoleculeRenderer {
       const mesh = this.atomMeshes.get(symbol);
       if (!mesh) continue;
 
-      const instanceIndex = this.atomCountsBySymbol.get(symbol) ?? 0;
-      const indices = mesh.userData.atomIndices as number[];
-
       const off = base + atomIndex * 3;
       this.atomTransform.position.set(positions[off], positions[off + 1], positions[off + 2]);
       this.atomTransform.updateMatrix();
-      mesh.setMatrixAt(instanceIndex, this.atomTransform.matrix);
-      this.atomCountsBySymbol.set(symbol, instanceIndex + 1);
-      indices.push(atomIndex);
+      mesh.setMatrixAt(mesh.count, this.atomTransform.matrix);
+      (mesh.userData.atomIndices as number[]).push(atomIndex);
+      mesh.count += 1;
     }
 
-    for (const [symbol, mesh] of this.atomMeshes) {
-      mesh.count = this.atomCountsBySymbol.get(symbol) ?? 0;
+    for (const mesh of this.atomMeshes.values()) {
       mesh.instanceMatrix.needsUpdate = true;
     }
 
-    if (this.computeBondsEnabled) {
-      this.updateBonds(frameIndex);
-    }
+    this.updateBonds(frameIndex);
   }
 
   private updateBonds(frameIndex: number) {
-    if (this.bondsCacheFrame !== frameIndex) {
-      writeFrameSymbols(this.trajectory, frameIndex, this.frameSymbolsScratch);
-      this.bondsCache = computeBonds(
-        this.trajectory.positions,
-        frameIndex,
-        this.trajectory.numAtoms,
-        this.frameSymbolsScratch,
-      );
-      this.bondsCacheFrame = frameIndex;
-    }
-    const bonds = this.bondsCache;
+    writeFrameSymbols(this.trajectory, frameIndex, this.frameSymbolsScratch);
+    const bonds = computeBonds(
+      this.trajectory.positions,
+      frameIndex,
+      this.trajectory.numAtoms,
+      this.frameSymbolsScratch,
+    );
 
     if (bonds.length > this.bondCapacity) {
       this.growBondCapacity(bonds.length);
@@ -262,9 +217,5 @@ export class MoleculeRenderer {
     const off = base + atomIndex * 3;
     target.set(positions[off], positions[off + 1], positions[off + 2]);
     return this.group.localToWorld(target);
-  }
-
-  getNumFrames() {
-    return this.trajectory.numFrames;
   }
 }

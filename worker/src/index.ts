@@ -270,10 +270,6 @@ export class RoomDurableObject extends DurableObject<Env> {
   private rateLimits = new Map<WebSocket, { windowStartedAt: number; count: number }>();
   private state: PresenterState = makeDefaultState();
 
-  constructor(durableState: DurableObjectState, env: Env) {
-    super(durableState, env);
-  }
-
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const roomId = sanitizeRoomId(url.pathname.match(/^\/room\/([^/]+)$/)?.[1] ?? null);

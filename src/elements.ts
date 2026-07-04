@@ -31,7 +31,3 @@ export const ELEMENT_TABLE: Record<string, ElementInfo> = {
 export function getElementInfo(symbol: string): ElementInfo {
   return ELEMENT_TABLE[symbol] ?? DEFAULT;
 }
-
-export function uniqueSymbols(symbols: string[]): string[] {
-  return Array.from(new Set(symbols));
-}

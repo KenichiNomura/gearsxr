@@ -66,6 +66,10 @@ export function normalizeWebSocketBase(value: string) {
   return value.trim().replace(/\/+$/, "");
 }
 
+function isLoopbackHost(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
+}
+
 export function defaultWebSocketBase() {
   const params = new URLSearchParams(location.search);
   const fromUrl = params.get(SERVER_PARAM)?.trim();
@@ -74,8 +78,7 @@ export function defaultWebSocketBase() {
   const configured = import.meta.env.VITE_COLLAB_WS_BASE?.trim();
   if (configured) return normalizeWebSocketBase(configured);
 
-  const localHost = location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.hostname === "";
-  if (localHost || location.protocol === "file:") return "ws://127.0.0.1:8787";
+  if (isLoopbackHost(location.hostname) || location.protocol === "file:") return "ws://127.0.0.1:8787";
   if (location.hostname) return `ws://${location.hostname}:8787`;
   return "";
 }
@@ -86,10 +89,6 @@ export function sanitizeRoomId(value: string) {
 
 export function makeRoomId() {
   return Math.random().toString(36).slice(2, 8);
-}
-
-function isLoopbackHost(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
 }
 
 function isBlockedMixedWebSocket(base: string) {
@@ -106,8 +105,6 @@ export class CollaborationClient {
   private ws: WebSocket | null = null;
   private callbacks: CollaborationCallbacks;
   private status: ConnectionStatus = "offline";
-  private roomId: string | null = null;
-  private serverBase = "";
   private intentionallyClosing = false;
   private joinTimeoutId: number | null = null;
   private user: RoomUser = {
@@ -128,16 +125,8 @@ export class CollaborationClient {
     return this.user.id;
   }
 
-  get currentRoomId() {
-    return this.roomId;
-  }
-
   get connectionStatus() {
     return this.status;
-  }
-
-  get currentServerBase() {
-    return this.serverBase;
   }
 
   isConnected() {
@@ -170,8 +159,6 @@ export class CollaborationClient {
 
     this.disconnect();
     this.intentionallyClosing = false;
-    this.roomId = normalizedRoomId;
-    this.serverBase = base;
     this.user = {
       ...this.user,
       name: userName.trim().slice(0, 40) || "Guest",
@@ -184,12 +171,7 @@ export class CollaborationClient {
     this.joinTimeoutId = window.setTimeout(() => {
       if (this.ws !== ws) return;
       this.clearJoinTimeout();
-      this.ws = null;
-      this.roomId = null;
-      this.serverBase = "";
-      this.users = [];
-      this.presenterId = null;
-      this.callbacks.onPresence?.({ type: "presence", users: [], presenterId: null });
+      this.resetRoomState();
       this.setStatus("error");
       this.callbacks.onError?.(`Room connection timed out: ${base}`);
       ws.close(4000, "Join timed out");
@@ -207,13 +189,8 @@ export class CollaborationClient {
       if (this.ws !== ws) return;
       this.clearJoinTimeout();
       const wasIntentional = this.intentionallyClosing;
-      this.users = [];
-      this.presenterId = null;
-      this.ws = null;
-      this.roomId = null;
-      this.serverBase = "";
       this.intentionallyClosing = false;
-      this.callbacks.onPresence?.({ type: "presence", users: [], presenterId: null });
+      this.resetRoomState();
       if (!wasIntentional && event.code !== 1000) {
         this.setStatus("error");
         const reason = event.reason ? `: ${event.reason}` : ` (code ${event.code})`;
@@ -233,15 +210,11 @@ export class CollaborationClient {
   disconnect() {
     this.clearJoinTimeout();
     this.intentionallyClosing = Boolean(this.ws);
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
       this.send({ type: "leave" });
     }
     this.ws?.close();
-    this.ws = null;
-    this.roomId = null;
-    this.serverBase = "";
-    this.users = [];
-    this.presenterId = null;
+    this.resetRoomState();
     this.setStatus("offline");
   }
 
@@ -315,5 +288,13 @@ export class CollaborationClient {
     if (this.joinTimeoutId === null) return;
     window.clearTimeout(this.joinTimeoutId);
     this.joinTimeoutId = null;
+  }
+
+  /** Clears connection/room fields and notifies listeners that the room is empty. */
+  private resetRoomState() {
+    this.ws = null;
+    this.users = [];
+    this.presenterId = null;
+    this.callbacks.onPresence?.({ type: "presence", users: [], presenterId: null });
   }
 }

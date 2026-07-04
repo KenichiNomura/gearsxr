@@ -19,6 +19,7 @@ export class MeasurementTool {
   private line: THREE.Line | null = null;
   private markerGeom = new THREE.SphereGeometry(0.12, 12, 8);
   private markerMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+  private lineMat = new THREE.LineBasicMaterial({ color: 0xffff00 });
   private onChange: (text: string) => void;
 
   constructor(onChange: (text: string) => void) {
@@ -60,7 +61,7 @@ export class MeasurementTool {
     if (this.selections.length < 2) return;
     const points = this.selections.map((s) => s.worldPosition);
     const geom = new THREE.BufferGeometry().setFromPoints(points);
-    this.line = new THREE.Line(geom, new THREE.LineBasicMaterial({ color: 0xffff00 }));
+    this.line = new THREE.Line(geom, this.lineMat);
     this.group.add(this.line);
   }
 

@@ -23,32 +23,39 @@ import {
   type ViewState,
 } from "./collaboration";
 
-const appEl = document.getElementById("app")!;
-const uiEl = document.getElementById("ui")!;
-const statusEl = document.getElementById("status")!;
-const toggleControlsBtn = document.getElementById("toggleControlsBtn") as HTMLButtonElement;
-const collaborationEl = document.getElementById("collaboration")!;
-const toggleRoomBtn = document.getElementById("toggleRoomBtn") as HTMLButtonElement;
-const fileInput = document.getElementById("fileInput") as HTMLInputElement;
-const urlInput = document.getElementById("urlInput") as HTMLInputElement;
-const loadUrlBtn = document.getElementById("loadUrlBtn") as HTMLButtonElement;
-const backgroundSelect = document.getElementById("backgroundSelect") as HTMLSelectElement;
-const vrEntryEl = document.getElementById("vrEntry")!;
-const playbackEl = document.getElementById("playback")!;
-const frameSlider = document.getElementById("frameSlider") as HTMLInputElement;
-const frameLabel = document.getElementById("frameLabel")!;
-const playBtn = document.getElementById("playBtn") as HTMLButtonElement;
-const stepBack = document.getElementById("stepBack") as HTMLButtonElement;
-const stepFwd = document.getElementById("stepFwd") as HTMLButtonElement;
-const fpsInput = document.getElementById("fpsInput") as HTMLInputElement;
-const roomInput = document.getElementById("roomInput") as HTMLInputElement;
-const userNameInput = document.getElementById("userNameInput") as HTMLInputElement;
-const serverInput = document.getElementById("serverInput") as HTMLInputElement;
-const copyRoomCodeBtn = document.getElementById("copyRoomCodeBtn") as HTMLButtonElement;
-const joinRoomBtn = document.getElementById("joinRoomBtn") as HTMLButtonElement;
-const leaveRoomBtn = document.getElementById("leaveRoomBtn") as HTMLButtonElement;
-const takePresenterBtn = document.getElementById("takePresenterBtn") as HTMLButtonElement;
-const collabStatusEl = document.getElementById("collabStatus")!;
+const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+
+const appEl = $("app");
+const uiEl = $("ui");
+const statusEl = $("status");
+const toggleControlsBtn = $<HTMLButtonElement>("toggleControlsBtn");
+const collaborationEl = $("collaboration");
+const toggleRoomBtn = $<HTMLButtonElement>("toggleRoomBtn");
+const fileInput = $<HTMLInputElement>("fileInput");
+const urlInput = $<HTMLInputElement>("urlInput");
+const loadUrlBtn = $<HTMLButtonElement>("loadUrlBtn");
+const backgroundSelect = $<HTMLSelectElement>("backgroundSelect");
+const vrEntryEl = $("vrEntry");
+const playbackEl = $("playback");
+const frameSlider = $<HTMLInputElement>("frameSlider");
+const frameLabel = $("frameLabel");
+const playBtn = $<HTMLButtonElement>("playBtn");
+const stepBack = $<HTMLButtonElement>("stepBack");
+const stepFwd = $<HTMLButtonElement>("stepFwd");
+const fpsInput = $<HTMLInputElement>("fpsInput");
+const roomInput = $<HTMLInputElement>("roomInput");
+const userNameInput = $<HTMLInputElement>("userNameInput");
+const serverInput = $<HTMLInputElement>("serverInput");
+const copyRoomCodeBtn = $<HTMLButtonElement>("copyRoomCodeBtn");
+const joinRoomBtn = $<HTMLButtonElement>("joinRoomBtn");
+const leaveRoomBtn = $<HTMLButtonElement>("leaveRoomBtn");
+const takePresenterBtn = $<HTMLButtonElement>("takePresenterBtn");
+const collabStatusEl = $("collabStatus");
+
+// Controls only the presenter (or a solo user) may operate.
+const presenterControls = [
+  fileInput, urlInput, loadUrlBtn, frameSlider, playBtn, stepBack, stepFwd, fpsInput, backgroundSelect,
+];
 
 // Surface otherwise-silent runtime errors in the UI status line, since most
 // users testing this won't have DevTools open.
@@ -152,16 +159,14 @@ const SERVER_BASE_KEY = "gearsxr-server-base";
 const BACKGROUND_KEY = "gearsxr-background";
 const CONTROLS_COLLAPSED_KEY = "gearsxr-controls-collapsed";
 const ROOM_COLLAPSED_KEY = "gearsxr-room-collapsed";
-const LEGACY_USER_NAME_KEY = "vr-md-viewer-user-name";
-const LEGACY_SERVER_BASE_KEY = "vr-md-viewer-server-base";
-const LEGACY_BACKGROUND_KEY = "vr-md-viewer-background";
-const LEGACY_CONTROLS_COLLAPSED_KEY = "vr-md-viewer-controls-collapsed";
 
-function readStoredValue(key: string, legacyKey: string): string | null {
+// Settings were stored under a "vr-md-viewer-*" prefix before the GEARS XR
+// rename; migrate them on first read.
+function readStoredValue(key: string): string | null {
   const value = localStorage.getItem(key);
   if (value !== null) return value;
 
-  const legacyValue = localStorage.getItem(legacyKey);
+  const legacyValue = localStorage.getItem(key.replace("gearsxr", "vr-md-viewer"));
   if (legacyValue !== null) {
     localStorage.setItem(key, legacyValue);
   }
@@ -170,9 +175,9 @@ function readStoredValue(key: string, legacyKey: string): string | null {
 
 const urlParams = new URLSearchParams(location.search);
 const backgroundFromUrl = urlParams.get("background");
-let currentBackgroundId = backgroundFromUrl
-  ? normalizeBackgroundId(backgroundFromUrl)
-  : normalizeBackgroundId(readStoredValue(BACKGROUND_KEY, LEGACY_BACKGROUND_KEY) ?? DEFAULT_BACKGROUND_ID);
+let currentBackgroundId = normalizeBackgroundId(
+  backgroundFromUrl ?? readStoredValue(BACKGROUND_KEY) ?? DEFAULT_BACKGROUND_ID,
+);
 let appliedBackgroundId = "";
 let backgroundLoadVersion = 0;
 const backgroundLoader = new THREE.TextureLoader();
@@ -200,14 +205,14 @@ function setRoomCollapsed(collapsed: boolean) {
   localStorage.setItem(ROOM_COLLAPSED_KEY, collapsed ? "1" : "0");
 }
 
-setControlsCollapsed(readStoredValue(CONTROLS_COLLAPSED_KEY, LEGACY_CONTROLS_COLLAPSED_KEY) === "1");
+setControlsCollapsed(readStoredValue(CONTROLS_COLLAPSED_KEY) === "1");
 setRoomCollapsed(localStorage.getItem(ROOM_COLLAPSED_KEY) !== "0");
 
 const roomFromUrl = sanitizeRoomId(urlParams.get("room") ?? "");
 roomInput.value = roomFromUrl.length >= 3 ? roomFromUrl : makeRoomId();
-userNameInput.value = readStoredValue(USER_NAME_KEY, LEGACY_USER_NAME_KEY) ?? `User ${Math.floor(1000 + Math.random() * 9000)}`;
+userNameInput.value = readStoredValue(USER_NAME_KEY) ?? `User ${Math.floor(1000 + Math.random() * 9000)}`;
 serverInput.value = normalizeWebSocketBase(
-  urlParams.get("server") ?? readStoredValue(SERVER_BASE_KEY, LEGACY_SERVER_BASE_KEY) ?? defaultWebSocketBase()
+  urlParams.get("server") ?? readStoredValue(SERVER_BASE_KEY) ?? defaultWebSocketBase()
 );
 
 const collaboration = new CollaborationClient({
@@ -237,18 +242,19 @@ const collaboration = new CollaborationClient({
   },
 });
 
+function signature(...values: number[]) {
+  return values.map((value) => value.toFixed(5)).join(",");
+}
+
 function objectTransformSignature(object: THREE.Object3D) {
-  const { position, quaternion, scale } = object;
-  return `${position.x.toFixed(5)},${position.y.toFixed(5)},${position.z.toFixed(5)},` +
-    `${quaternion.x.toFixed(5)},${quaternion.y.toFixed(5)},${quaternion.z.toFixed(5)},${quaternion.w.toFixed(5)},` +
-    `${scale.x.toFixed(5)},${scale.y.toFixed(5)},${scale.z.toFixed(5)}`;
+  const { position: p, quaternion: q, scale: s } = object;
+  return signature(p.x, p.y, p.z, q.x, q.y, q.z, q.w, s.x, s.y, s.z);
 }
 
 function currentViewSignature() {
-  const { position } = camera;
-  const { target } = orbitControls;
-  return `${position.x.toFixed(5)},${position.y.toFixed(5)},${position.z.toFixed(5)},` +
-    `${target.x.toFixed(5)},${target.y.toFixed(5)},${target.z.toFixed(5)}`;
+  const { position: p } = camera;
+  const { target: t } = orbitControls;
+  return signature(p.x, p.y, p.z, t.x, t.y, t.z);
 }
 
 function getMoleculeTransform(): TransformState {
@@ -273,6 +279,10 @@ function clampFps(value: number) {
 function readFpsInput() {
   const value = Number.parseFloat(fpsInput.value);
   return Number.isFinite(value) ? clampFps(value) : 15;
+}
+
+function syncPlayButton() {
+  playBtn.textContent = playback?.playing ? "Pause" : "Play";
 }
 
 function applyFpsInput(commit = false) {
@@ -401,15 +411,9 @@ function updateCollaborationUi() {
   const canControlSharedState = !connected || collaboration.isPresenter();
   manipulator.setEnabled(canControlSharedState);
   orbitControls.enabled = canControlSharedState;
-  fileInput.disabled = !canControlSharedState;
-  urlInput.disabled = !canControlSharedState;
-  loadUrlBtn.disabled = !canControlSharedState;
-  frameSlider.disabled = !canControlSharedState;
-  playBtn.disabled = !canControlSharedState;
-  stepBack.disabled = !canControlSharedState;
-  stepFwd.disabled = !canControlSharedState;
-  fpsInput.disabled = !canControlSharedState;
-  backgroundSelect.disabled = !canControlSharedState;
+  for (const control of presenterControls) {
+    control.disabled = !canControlSharedState;
+  }
 
   const statusLines = connected
     ? [
@@ -446,7 +450,7 @@ async function applyRemotePresenterState(state: PresenterState) {
       playback.fps = state.fps;
       fpsInput.value = String(state.fps);
       playback.playing = state.playing;
-      playBtn.textContent = playback.playing ? "Pause" : "Play";
+      syncPlayButton();
       playback.setFrame(state.frameIndex);
     }
   } finally {
@@ -496,7 +500,6 @@ renderer.domElement.addEventListener("pointercancel", () => {
   pointerSelectStart = null;
 });
 
-renderer.domElement.addEventListener("keydown", () => {});
 window.addEventListener("keydown", (e) => {
   if (e.key === "c" || e.key === "C") measurementTool.clear();
 });
@@ -542,6 +545,7 @@ async function loadTrajectoryFile(
     });
     playback.fps = readFpsInput();
     fpsInput.value = String(playback.fps);
+    syncPlayButton();
 
     frameSlider.min = "0";
     frameSlider.max = String(trajectory.numFrames - 1);
@@ -601,18 +605,17 @@ fileInput.addEventListener("change", () => {
 
 // Drag-and-drop fallback: doesn't depend on the native file-picker dialog,
 // which can fail to appear on some browser/OS/permission combinations.
-const dropZone = document.getElementById("ui")!;
-dropZone.addEventListener("dragover", (e) => {
+uiEl.addEventListener("dragover", (e) => {
   e.preventDefault();
-  dropZone.style.outline = "2px dashed #44ccff";
+  uiEl.style.outline = "2px dashed #44ccff";
 });
-dropZone.addEventListener("dragleave", () => {
-  dropZone.style.outline = "none";
+uiEl.addEventListener("dragleave", () => {
+  uiEl.style.outline = "none";
 });
 window.addEventListener("dragover", (e) => e.preventDefault());
 window.addEventListener("drop", (e) => {
   e.preventDefault();
-  dropZone.style.outline = "none";
+  uiEl.style.outline = "none";
   const file = e.dataTransfer?.files?.[0];
   if (file) loadTrajectoryFile(file, null, true);
 });
@@ -630,7 +633,7 @@ frameSlider.addEventListener("input", () => {
 playBtn.addEventListener("click", () => {
   if (!playback) return;
   playback.playing = !playback.playing;
-  playBtn.textContent = playback.playing ? "Pause" : "Play";
+  syncPlayButton();
   markPresenterStateDirty(true);
 });
 

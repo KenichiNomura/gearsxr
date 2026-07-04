@@ -188,7 +188,7 @@ export async function parseExtendedXYZ(
   }
 
   let numAtoms = -1;
-  let symbols: string[] = [];
+  const symbols: string[] = [];
   const frameSymbols: string[] = [];
   const comments: string[] = [];
   let positions: Float32Array | null = null;
