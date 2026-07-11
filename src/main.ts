@@ -15,6 +15,7 @@ import {
 import {
   CollaborationClient,
   defaultWebSocketBase,
+  httpBaseFromWebSocketBase,
   makeRoomId,
   normalizeWebSocketBase,
   sanitizeRoomId,
@@ -22,6 +23,7 @@ import {
   type TransformState,
   type ViewState,
 } from "./collaboration";
+import { fetchTrajectoryBlob } from "./trajectoryFetch";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -575,12 +577,16 @@ async function loadTrajectoryFromUrl(url: string, broadcastState = true) {
   pendingTrajectoryUrl = url;
   statusEl.textContent = "Fetching...";
   try {
-    const response = await fetch(url, { signal: fetchController.signal });
-    if (loadVersion !== trajectoryLoadVersion) return;
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText}`);
-    }
-    const blob = await response.blob();
+    const proxyBase = httpBaseFromWebSocketBase(
+      normalizeWebSocketBase(serverInput.value) || defaultWebSocketBase(),
+    );
+    const blob = await fetchTrajectoryBlob(url, {
+      proxyBase,
+      signal: fetchController.signal,
+      onStatus: (message) => {
+        if (loadVersion === trajectoryLoadVersion) statusEl.textContent = message;
+      },
+    });
     if (loadVersion !== trajectoryLoadVersion) return;
     await loadTrajectoryFile(blob, url, broadcastState, loadVersion);
   } catch (err) {

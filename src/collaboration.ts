@@ -66,6 +66,11 @@ export function normalizeWebSocketBase(value: string) {
   return value.trim().replace(/\/+$/, "");
 }
 
+/** ws(s):// room-server base -> http(s):// base for its plain HTTP routes (e.g. /proxy). */
+export function httpBaseFromWebSocketBase(base: string) {
+  return base.replace(/^wss:/i, "https:").replace(/^ws:/i, "http:");
+}
+
 function isLoopbackHost(hostname: string) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
 }

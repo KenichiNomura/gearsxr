@@ -6,6 +6,8 @@ export interface Env {
   MAX_ROOM_USERS?: string;
   MAX_MESSAGE_BYTES?: string;
   MAX_MESSAGES_PER_10_SECONDS?: string;
+  MAX_PROXY_BYTES?: string;
+  PROXY_ALLOWED_HOSTS?: string;
 }
 
 type Vec3Tuple = [number, number, number];
@@ -60,6 +62,21 @@ const DEFAULT_MAX_ROOM_USERS = 6;
 const DEFAULT_MAX_MESSAGE_BYTES = 8192;
 const DEFAULT_MAX_MESSAGES_PER_10_SECONDS = 240;
 const RATE_WINDOW_MS = 10_000;
+const DEFAULT_MAX_PROXY_BYTES = 52_428_800; // 50 MB
+const MAX_PROXY_REDIRECTS = 5;
+const PROXY_TIMEOUT_MS = 30_000;
+const MAX_TRAJECTORY_URL_LENGTH = 2048;
+// Entries starting with "." are suffix matches; everything else is exact.
+const DEFAULT_PROXY_ALLOWED_HOSTS = [
+  "drive.google.com",
+  "drive.usercontent.google.com",
+  ".dropboxusercontent.com",
+  "api.onedrive.com",
+  "onedrive.live.com",
+  "1drv.ms",
+  ".1drv.com",
+  "raw.githubusercontent.com",
+];
 const DEFAULT_BACKGROUND_ID = "dark-cyberspace";
 const VALID_BACKGROUND_IDS = new Set([
   DEFAULT_BACKGROUND_ID,
@@ -184,9 +201,7 @@ function normalizeBackgroundId(value: unknown, fallback: string) {
 function mergePresenterState(current: PresenterState, patch: Partial<PresenterState>): PresenterState {
   const frameIndex = isFiniteNumber(patch.frameIndex) ? Math.max(0, Math.floor(patch.frameIndex)) : current.frameIndex;
   const fps = isFiniteNumber(patch.fps) ? Math.min(60, Math.max(1, Math.round(patch.fps))) : current.fps;
-  const trajectoryUrl = typeof patch.trajectoryUrl === "string" || patch.trajectoryUrl === null
-    ? patch.trajectoryUrl
-    : current.trajectoryUrl;
+  const trajectoryUrl = sanitizeTrajectoryUrl(patch.trajectoryUrl, current.trajectoryUrl);
 
   return {
     trajectoryUrl,
@@ -208,6 +223,210 @@ function normalizeUser(user: Partial<RoomUser> | undefined): RoomUser | null {
   const name = typeof user.name === "string" && user.name.trim() ? user.name.trim().slice(0, 40) : "Guest";
   const color = typeof user.color === "string" && /^#[0-9a-fA-F]{6}$/.test(user.color) ? user.color : "#44ccff";
   return { id, name, color, joinedAt: Date.now() };
+}
+
+function isPrivateHostname(hostname: string) {
+  const host = hostname.toLowerCase();
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "[::1]" ||
+    host.endsWith(".localhost") ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
+}
+
+// Room state may only carry https URLs (or plain http to loopback/LAN hosts
+// for local development); anything else keeps the previous value so a hostile
+// presenter cannot relay javascript:/data:/etc. URLs to followers.
+function sanitizeTrajectoryUrl(value: unknown, fallback: string | null): string | null {
+  if (value === null) return null;
+  if (typeof value !== "string" || value.length > MAX_TRAJECTORY_URL_LENGTH) return fallback;
+  try {
+    const url = new URL(value);
+    if (url.protocol === "https:" || (url.protocol === "http:" && isPrivateHostname(url.hostname))) {
+      return value;
+    }
+  } catch {
+    // fall through
+  }
+  return fallback;
+}
+
+function proxyAllowedHosts(env: Env) {
+  const configured = (env.PROXY_ALLOWED_HOSTS ?? "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  return configured.length > 0 ? configured : DEFAULT_PROXY_ALLOWED_HOSTS;
+}
+
+function proxyHostAllowed(hostname: string, allowed: string[]) {
+  const host = hostname.toLowerCase();
+  return allowed.some((entry) =>
+    entry.startsWith(".") ? host.endsWith(entry) || host === entry.slice(1) : host === entry,
+  );
+}
+
+/** Returns the parsed URL when the proxy may fetch it, or a rejection reason. */
+function validateProxyTarget(raw: string | null, env: Env): URL | string {
+  if (!raw) return "Missing url parameter.";
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return "Invalid url parameter.";
+  }
+  if (url.protocol !== "https:") return "Only https:// URLs can be proxied.";
+  if (url.username || url.password) return "URLs with embedded credentials are not allowed.";
+  if (url.port) return "URLs with explicit ports are not allowed.";
+  if (!proxyHostAllowed(url.hostname, proxyAllowedHosts(env))) {
+    return `Host "${url.hostname}" is not in the proxy allowlist.`;
+  }
+  return url;
+}
+
+/**
+ * Fetches the target following redirects manually so every hop is
+ * re-validated against the https + host-allowlist rules. Only the target URL
+ * is sent upstream — no client cookies or headers are forwarded.
+ */
+async function fetchProxyTarget(target: URL, env: Env, signal: AbortSignal): Promise<Response | string> {
+  let current = target;
+  for (let hop = 0; hop <= MAX_PROXY_REDIRECTS; hop++) {
+    const response = await fetch(current.toString(), { redirect: "manual", signal });
+    if (![301, 302, 303, 307, 308].includes(response.status)) {
+      return response;
+    }
+    const location = response.headers.get("Location");
+    void response.body?.cancel();
+    if (!location) return "Upstream sent a redirect without a Location header.";
+    let next: string;
+    try {
+      next = new URL(location, current).toString();
+    } catch {
+      return "Upstream redirected to an invalid URL.";
+    }
+    const validated = validateProxyTarget(next, env);
+    if (typeof validated === "string") return `Upstream redirected to a disallowed URL: ${validated}`;
+    current = validated;
+  }
+  return "Too many upstream redirects.";
+}
+
+/**
+ * Google Drive answers with an HTML "can't scan for viruses" confirmation
+ * page for larger files. Re-submit its form (action + hidden inputs) once,
+ * still subject to the proxy target rules.
+ */
+async function resolveDriveConfirmPage(page: Response, env: Env, signal: AbortSignal): Promise<Response | string> {
+  const html = await page.text();
+  const action = html.match(/<form[^>]+action="([^"]+)"/)?.[1]?.replace(/&amp;/g, "&");
+  if (!action) {
+    return "Google Drive returned a web page instead of the file. Make sure the link is shared publicly.";
+  }
+  let actionUrl: URL;
+  try {
+    actionUrl = new URL(action);
+  } catch {
+    return "Google Drive returned an unexpected confirmation page.";
+  }
+  for (const input of html.matchAll(/<input[^>]*>/g)) {
+    const name = input[0].match(/name="([^"]+)"/)?.[1];
+    if (!name) continue;
+    const value = (input[0].match(/value="([^"]*)"/)?.[1] ?? "").replace(/&amp;/g, "&");
+    actionUrl.searchParams.set(name, value);
+  }
+  const validated = validateProxyTarget(actionUrl.toString(), env);
+  if (typeof validated === "string") return `Google Drive confirmation blocked: ${validated}`;
+  return fetchProxyTarget(validated, env, signal);
+}
+
+function proxyCorsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get("Origin");
+  const headers: Record<string, string> = { vary: "Origin", "cache-control": "no-store" };
+  if (origin) headers["access-control-allow-origin"] = origin;
+  return headers;
+}
+
+async function handleProxy(request: Request, env: Env): Promise<Response> {
+  const cors = proxyCorsHeaders(request);
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed." }, { status: 405, headers: cors });
+  }
+  if (!originAllowed(request, env)) {
+    return json({ error: "Origin is not allowed." }, { status: 403, headers: cors });
+  }
+
+  const target = validateProxyTarget(new URL(request.url).searchParams.get("url"), env);
+  if (typeof target === "string") {
+    return json({ error: target }, { status: 400, headers: cors });
+  }
+
+  const maxBytes = numberFromEnv(env.MAX_PROXY_BYTES, DEFAULT_MAX_PROXY_BYTES);
+  const signal = AbortSignal.timeout(PROXY_TIMEOUT_MS);
+
+  let upstream: Response | string;
+  try {
+    upstream = await fetchProxyTarget(target, env, signal);
+    if (typeof upstream !== "string") {
+      const finalHost = (() => {
+        try {
+          return new URL(upstream.url).hostname.toLowerCase();
+        } catch {
+          return target.hostname;
+        }
+      })();
+      const isDriveHtml =
+        (finalHost === "drive.google.com" || finalHost === "drive.usercontent.google.com") &&
+        (upstream.headers.get("content-type") ?? "").includes("text/html");
+      if (isDriveHtml) {
+        upstream = await resolveDriveConfirmPage(upstream, env, signal);
+      }
+    }
+  } catch (err) {
+    const reason = err instanceof Error && err.name === "TimeoutError" ? "Upstream fetch timed out." : "Upstream fetch failed.";
+    return json({ error: reason }, { status: 502, headers: cors });
+  }
+  if (typeof upstream === "string") {
+    return json({ error: upstream }, { status: 502, headers: cors });
+  }
+  if (!upstream.ok) {
+    void upstream.body?.cancel();
+    return json({ error: `Upstream returned HTTP ${upstream.status}.` }, { status: 502, headers: cors });
+  }
+
+  const declaredLength = Number(upstream.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+    void upstream.body?.cancel();
+    return json({ error: `File exceeds the proxy size limit (${maxBytes} bytes).` }, { status: 413, headers: cors });
+  }
+
+  let sentBytes = 0;
+  const sizeLimiter = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      sentBytes += chunk.byteLength;
+      if (sentBytes > maxBytes) {
+        controller.error(new Error("Proxy size limit exceeded."));
+      } else {
+        controller.enqueue(chunk);
+      }
+    },
+  });
+
+  // Pinned response headers: proxied bytes are always inert plain text on
+  // this origin, never a renderable page, whatever upstream claimed.
+  return new Response(upstream.body ? upstream.body.pipeThrough(sizeLimiter) : null, {
+    status: 200,
+    headers: {
+      ...cors,
+      "content-type": "text/plain; charset=utf-8",
+      "x-content-type-options": "nosniff",
+      "content-disposition": "attachment",
+    },
+  });
 }
 
 function send(socket: WebSocket, data: unknown) {
@@ -248,6 +467,10 @@ export default {
 
     if (url.pathname === "/health") {
       return json({ ok: true });
+    }
+
+    if (url.pathname === "/proxy") {
+      return handleProxy(request, env);
     }
 
     const match = url.pathname.match(/^\/room\/([^/]+)$/);

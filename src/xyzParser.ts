@@ -30,7 +30,7 @@ interface PropertyField {
   start: number;
 }
 
-interface FrameLayout {
+export interface FrameLayout {
   symbolIndex: number;
   positionIndices: [number, number, number];
   idIndex: number | null;
@@ -87,7 +87,7 @@ function findField(fields: PropertyField[], names: Set<string>, minCount = 1): P
   return fields.find((field) => field.count >= minCount && names.has(normalizePropertyName(field.name)));
 }
 
-function getFrameLayout(comment: string): FrameLayout {
+export function getFrameLayout(comment: string): FrameLayout {
   const fields = parseProperties(comment);
   if (!fields) {
     return { symbolIndex: 0, positionIndices: [1, 2, 3], idIndex: null };

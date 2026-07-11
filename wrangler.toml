@@ -7,6 +7,9 @@ ALLOWED_ORIGINS = "http://localhost:5174,http://127.0.0.1:5174,http://192.168.1.
 MAX_ROOM_USERS = "6"
 MAX_MESSAGE_BYTES = "8192"
 MAX_MESSAGES_PER_10_SECONDS = "240"
+MAX_PROXY_BYTES = "52428800"
+# Hosts the /proxy route may fetch from; entries starting with "." are suffix matches.
+PROXY_ALLOWED_HOSTS = "drive.google.com,drive.usercontent.google.com,.dropboxusercontent.com,api.onedrive.com,onedrive.live.com,1drv.ms,.1drv.com,raw.githubusercontent.com"
 
 [durable_objects]
 bindings = [

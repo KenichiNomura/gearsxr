@@ -69,7 +69,7 @@ There are three ways to load a file:
 
 - Click **Choose File** and select a local `.xyz` file.
 - Drag and drop a `.xyz` file onto the page.
-- Paste a direct file URL into **Or load from a URL**, then click **Load URL**.
+- Paste a file URL into **Or load from a URL**, then click **Load URL**. This accepts direct file URLs and share links from Google Drive, Dropbox, OneDrive, and GitHub — share links are rewritten to their direct-download form automatically. Cloud files must be shared publicly ("Anyone with the link"). Only `https://` URLs are accepted, and when the URL shows a file name it must end in `.xyz` or `.extxyz`.
 
 For single-user viewing, all three methods work. For multiuser rooms, use **Load URL** because local files are not sent to other users.
 
@@ -119,9 +119,11 @@ For everyone in a room to see the same trajectory, the file must be reachable by
 
 Good options:
 
-- A file hosted on GitHub Pages.
+- A Google Drive, Dropbox, or OneDrive share link (shared publicly: "Anyone with the link").
+- A file hosted on GitHub (a `blob` page link or GitHub Pages URL).
 - A direct HTTPS file URL from a web server.
-- A public file URL with browser-accessible CORS headers.
+
+When a cloud provider blocks direct browser downloads (Google Drive usually does), the viewer automatically retries through the room server's `/proxy` route, which only fetches from known cloud-storage hosts and caps file size.
 
 Avoid using **Choose File** for a room demo. Local file loading only affects your own browser, so other room members will wait for a trajectory URL.
 
@@ -145,6 +147,8 @@ On desktop, click atoms to measure. Selecting two atoms reports a distance; sele
 
 ## Quick Troubleshooting
 
+- **"This URL returned a web page, not an XYZ file":** the share link is not public. Set the cloud file to "Anyone with the link" and try again.
+- **"Expected a .xyz or .extxyz file":** the URL points at a file with a different name. Rename the file or use a link without a misleading extension.
 - **Room stays on Connecting:** check that the room server starts with `wss://` on the hosted HTTPS page.
 - **Other users do not see my molecule:** load the trajectory with **Load URL**, not **Choose File**.
 - **A follower cannot control the scene:** click **Take Presenter** first.
