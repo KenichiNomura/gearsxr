@@ -83,7 +83,8 @@
         border-radius: 8px;
       }
       #isosurface h2 { font-size: 14px; margin: 0; font-weight: 600; }
-      #isoAddBtn {
+      .isoHeaderButtons { display: inline-flex; gap: 6px; }
+      #isoAddBtn, #isoResetBtn {
         flex: 0 0 auto; margin: 0; padding: 2px 8px; font-size: 12px; cursor: pointer;
         color: #eee; background: rgba(255,255,255,0.08);
         border: 1px solid rgba(255,255,255,0.22); border-radius: 4px;
@@ -96,9 +97,13 @@
         flex: 0 0 auto; width: 24px; height: 24px; padding: 0; cursor: pointer;
         background: none; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px;
       }
-      .isoRow .isoValueWrap { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+      .isoRow .isoValueWrap { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .isoRow .isoValue { width: 100%; }
-      .isoRow .isoReadout { font-size: 10px; opacity: 0.75; font-variant-numeric: tabular-nums; }
+      .isoRow .isoNumber {
+        width: 100%; box-sizing: border-box; font-size: 11px; padding: 1px 4px;
+        color: #eee; background: #0b1119; border: 1px solid #61738a; border-radius: 3px;
+        font-variant-numeric: tabular-nums;
+      }
       .isoRow .isoOpacity { flex: 0 0 68px; width: 68px; }
       .isoRow .isoVisibleBox { flex: 0 0 auto; cursor: pointer; }
       .isoRow .isoRemove {
@@ -134,8 +139,8 @@
       <div id="controlsContent">
         <label for="fileInput">Load an XYZ trajectory or Gaussian Cube file (or drag &amp; drop anywhere)</label>
         <input id="fileInput" type="file" />
-        <label for="urlInput" style="margin-top:8px">Or load from a URL (direct link, or a Google Drive / Dropbox / OneDrive share link)</label>
-        <input id="urlInput" type="text" placeholder="https://.../trajectory.xyz or a share link" value="https://gearsxr.space/samples/tobe.xyz" />
+        <label for="urlInput" style="margin-top:8px">Or load from a URL (direct link, a Google Drive / Dropbox / OneDrive share link) or a Materials Project ID (e.g. mp-149)</label>
+        <input id="urlInput" type="text" placeholder="https://.../trajectory.xyz, a share link, or mp-149" value="https://gearsxr.space/samples/tobe.xyz" />
         <button id="loadUrlBtn" style="margin-top:4px">Load URL</button>
         <label for="backgroundSelect" style="margin-top:8px">Background</label>
         <select id="backgroundSelect"></select>
@@ -183,7 +188,10 @@
     <div id="isosurface" style="display:none">
       <div class="panelHeader">
         <h2>Isosurface</h2>
-        <button id="isoAddBtn" type="button">+ Add surface</button>
+        <span class="isoHeaderButtons">
+          <button id="isoResetBtn" type="button">Reset</button>
+          <button id="isoAddBtn" type="button">+ Add surface</button>
+        </span>
       </div>
       <div id="isoList"></div>
       <div id="isoHint">Each row: color, isovalue, opacity, visibility. Use a negative isovalue for the opposite orbital lobe.</div>

@@ -9,7 +9,7 @@ MAX_MESSAGE_BYTES = "8192"
 MAX_MESSAGES_PER_10_SECONDS = "240"
 MAX_PROXY_BYTES = "52428800"
 # Hosts the /proxy route may fetch from; entries starting with "." are suffix matches.
-PROXY_ALLOWED_HOSTS = "drive.google.com,drive.usercontent.google.com,.dropboxusercontent.com,api.onedrive.com,onedrive.live.com,1drv.ms,.1drv.com,raw.githubusercontent.com"
+PROXY_ALLOWED_HOSTS = "drive.google.com,drive.usercontent.google.com,.dropboxusercontent.com,api.onedrive.com,onedrive.live.com,1drv.ms,.1drv.com,raw.githubusercontent.com,optimade.materialsproject.org"
 
 [durable_objects]
 bindings = [

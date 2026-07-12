@@ -27,6 +27,12 @@ import {
   type ViewState,
 } from "./collaboration";
 import { fetchTrajectoryBlob } from "./trajectoryFetch";
+import {
+  fetchMaterialsProjectXyz,
+  materialsProjectId,
+  optimadeIdFromUrl,
+  optimadeUrlForId,
+} from "./materialsProject";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -44,6 +50,7 @@ const vrEntryEl = $("vrEntry");
 const isosurfaceEl = $("isosurface");
 const isoListEl = $("isoList");
 const isoAddBtn = $<HTMLButtonElement>("isoAddBtn");
+const isoResetBtn = $<HTMLButtonElement>("isoResetBtn");
 const playbackEl = $("playback");
 const frameSlider = $<HTMLInputElement>("frameSlider");
 const frameLabel = $("frameLabel");
@@ -117,6 +124,7 @@ scene.add(grid);
 let moleculeRenderer: MoleculeRenderer | null = null;
 let isosurfaceRenderer: IsosurfaceRenderer | null = null;
 let isoMaxAbs = 1;
+let isoSeedSigned = false;
 let isoSurfaceCount = 0;
 let isoColorCursor = 0;
 let cubeStatusSummary = "";
@@ -608,6 +616,23 @@ interface SurfaceSpec {
   visible: boolean;
 }
 
+// Seeds the default surfaces for the loaded cube: a positive lobe, plus a
+// negative lobe when the field has negative values.
+function seedDefaultSurfaces() {
+  addSurface({ isovalue: isoMaxAbs * 0.3, color: ISO_COLORS[0], opacity: 0.55, visible: true });
+  if (isoSeedSigned) addSurface({ isovalue: -isoMaxAbs * 0.3, color: ISO_COLORS[1], opacity: 0.55, visible: true });
+  isoColorCursor = isoSeedSigned ? 2 : 1;
+}
+
+function clearSurfaces() {
+  isosurfaceRenderer?.clearLayers();
+  isoListEl.replaceChildren();
+  clearIsoRowTimers();
+  isoSurfaceCount = 0;
+  isoColorCursor = 0;
+  isoAddBtn.disabled = false;
+}
+
 function addSurface(spec: SurfaceSpec) {
   if (!isosurfaceRenderer || isoSurfaceCount >= MAX_ISO_SURFACES) return;
   const id = isosurfaceRenderer.addLayer(spec);
@@ -637,17 +662,33 @@ function createSurfaceRow(id: number, spec: SurfaceSpec): HTMLElement {
   slider.step = String(isoMaxAbs / 400);
   slider.value = String(spec.isovalue);
   slider.title = "Isovalue";
-  const readout = document.createElement("span");
-  readout.className = "isoReadout";
-  readout.textContent = spec.isovalue.toPrecision(3);
-  slider.addEventListener("input", () => {
-    const value = parseFloat(slider.value);
-    readout.textContent = value.toPrecision(3);
-    // Debounce so dragging doesn't flood the worker with extractions.
+  // Editable number so exact isovalues can be typed in directly.
+  const number = document.createElement("input");
+  number.type = "number";
+  number.className = "isoNumber";
+  number.min = String(-isoMaxAbs);
+  number.max = String(isoMaxAbs);
+  number.step = String(isoMaxAbs / 400);
+  number.value = String(spec.isovalue);
+  number.title = "Isovalue (type a value)";
+
+  const applyIsovalue = (value: number) => {
+    if (!Number.isFinite(value)) return;
     window.clearTimeout(isoRowDebounce.get(id));
     isoRowDebounce.set(id, window.setTimeout(() => isosurfaceRenderer?.setLayerIsovalue(id, value), 60));
+  };
+  slider.addEventListener("input", () => {
+    const value = parseFloat(slider.value);
+    number.value = String(parseFloat(value.toPrecision(4)));
+    applyIsovalue(value);
   });
-  valueWrap.append(slider, readout);
+  number.addEventListener("input", () => {
+    const value = parseFloat(number.value);
+    if (!Number.isFinite(value)) return;
+    slider.value = String(value); // thumb tracks the typed value (clamped to range)
+    applyIsovalue(value);
+  });
+  valueWrap.append(slider, number);
 
   const opacity = document.createElement("input");
   opacity.type = "range";
@@ -719,7 +760,7 @@ async function loadCubeVolume(
   document.body.classList.remove("has-playback");
 
   const maxAbs = Math.max(Math.abs(volume.min), Math.abs(volume.max)) || 1;
-  const signed = volume.min < -1e-6 * maxAbs;
+  isoSeedSigned = volume.min < -1e-6 * maxAbs;
   cubeStatusSummary = `Loaded ${volume.atoms.length} atoms, ${volume.grid.nx}x${volume.grid.ny}x${volume.grid.nz} grid`;
 
   resetIsosurfacePanel(maxAbs);
@@ -730,12 +771,7 @@ async function loadCubeVolume(
     },
   });
   moleculeRoot.add(isosurfaceRenderer.group);
-
-  // Seed surfaces to match the previous default look: a positive lobe, plus a
-  // negative lobe when the field has negative values.
-  addSurface({ isovalue: maxAbs * 0.3, color: ISO_COLORS[0], opacity: 0.55, visible: true });
-  if (signed) addSurface({ isovalue: -maxAbs * 0.3, color: ISO_COLORS[1], opacity: 0.55, visible: true });
-  isoColorCursor = signed ? 2 : 1;
+  seedDefaultSurfaces();
 
   statusEl.textContent = cubeStatusSummary;
   if (broadcastState) markPresenterStateDirty(true);
@@ -840,13 +876,21 @@ async function loadTrajectoryFromUrl(url: string, broadcastState = true) {
     const proxyBase = httpBaseFromWebSocketBase(
       normalizeWebSocketBase(serverInput.value) || defaultWebSocketBase(),
     );
-    const blob = await fetchTrajectoryBlob(url, {
-      proxyBase,
-      signal: fetchController.signal,
-      onStatus: (message) => {
-        if (loadVersion === trajectoryLoadVersion) statusEl.textContent = message;
-      },
-    });
+    const onStatus = (message: string) => {
+      if (loadVersion === trajectoryLoadVersion) statusEl.textContent = message;
+    };
+
+    // A Materials Project structure (canonical OPTIMADE URL) is fetched as JSON
+    // and converted to XYZ; followers receive the same URL and take this path.
+    const mpId = optimadeIdFromUrl(url);
+    let blob: Blob;
+    if (mpId) {
+      onStatus(`Fetching Materials Project ${mpId}...`);
+      const xyz = await fetchMaterialsProjectXyz(mpId, { proxyBase, signal: fetchController.signal, onStatus });
+      blob = new Blob([xyz], { type: "text/plain" });
+    } else {
+      blob = await fetchTrajectoryBlob(url, { proxyBase, signal: fetchController.signal, onStatus });
+    }
     if (loadVersion !== trajectoryLoadVersion) return;
     await loadTrajectoryFile(blob, url, broadcastState, loadVersion);
   } catch (err) {
@@ -887,9 +931,11 @@ window.addEventListener("drop", (e) => {
 });
 
 loadUrlBtn.addEventListener("click", async () => {
-  const url = urlInput.value.trim();
-  if (!url) return;
-  await loadTrajectoryFromUrl(url, true);
+  const raw = urlInput.value.trim();
+  if (!raw) return;
+  // A Materials Project id or page URL normalizes to the OPTIMADE URL.
+  const mpId = materialsProjectId(raw);
+  await loadTrajectoryFromUrl(mpId ? optimadeUrlForId(mpId) : raw, true);
 });
 
 frameSlider.addEventListener("input", () => {
@@ -924,6 +970,12 @@ isoAddBtn.addEventListener("click", () => {
   const color = ISO_COLORS[isoColorCursor % ISO_COLORS.length];
   isoColorCursor += 1;
   addSurface({ isovalue: isoMaxAbs * 0.1, color, opacity: 0.55, visible: true });
+});
+
+isoResetBtn.addEventListener("click", () => {
+  if (!isosurfaceRenderer) return;
+  clearSurfaces();
+  seedDefaultSurfaces();
 });
 
 roomInput.addEventListener("input", updateRoomCodeUi);

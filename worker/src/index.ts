@@ -76,6 +76,7 @@ const DEFAULT_PROXY_ALLOWED_HOSTS = [
   "1drv.ms",
   ".1drv.com",
   "raw.githubusercontent.com",
+  "optimade.materialsproject.org",
 ];
 const DEFAULT_BACKGROUND_ID = "dark-cyberspace";
 const VALID_BACKGROUND_IDS = new Set([

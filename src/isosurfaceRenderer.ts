@@ -132,6 +132,16 @@ export class IsosurfaceRenderer {
     this.group.visible = visible;
   }
 
+  clearLayers() {
+    for (const layer of this.layers.values()) {
+      this.group.remove(layer.mesh);
+      layer.mesh.geometry.dispose();
+      layer.material.dispose();
+    }
+    this.layers.clear();
+    this.tokenToLayer.clear();
+  }
+
   dispose() {
     this.worker?.terminate();
     this.worker = null;

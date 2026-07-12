@@ -10,6 +10,7 @@ GEARS XR (Extended Reality) is a browser-based molecular dynamics trajectory vie
 ## Features
 
 - Load extended XYZ trajectories from a local file, drag-and-drop, or URL — including Google Drive, Dropbox, OneDrive, and GitHub share links.
+- Load crystal structures straight from the [Materials Project](https://next-gen.materialsproject.org/) by ID (e.g. `mp-149`) via its keyless OPTIMADE endpoint.
 - Play multi-frame trajectories with a frame slider, step buttons, and FPS control.
 - Color atoms by element and compute bonds per frame from covalent radii.
 - Visualize a 3D isosurface of a scalar field (electron density, molecular orbitals) from a Gaussian Cube file, with an adjustable isovalue and signed ± lobes.
