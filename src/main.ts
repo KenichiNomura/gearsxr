@@ -161,6 +161,7 @@ const isoPanel = new IsosurfacePanel({
   onStatus: (text) => {
     statusEl.textContent = text || cubeStatusSummary;
   },
+  onChange: () => markPresenterStateDirty(),
 });
 
 const raycaster = new THREE.Raycaster();
@@ -387,6 +388,7 @@ function getPresenterState(): PresenterState {
     backgroundId: currentBackgroundId,
     transform: getMoleculeTransform(),
     view: getViewState(),
+    surfaces: isoPanel.getSurfaces(),
     presenterId: collaboration.presenterId,
     updatedAt: Date.now(),
   };
@@ -427,6 +429,7 @@ function updateCollaborationUi() {
   const canControlSharedState = !connected || collaboration.isPresenter();
   manipulator.setEnabled(canControlSharedState);
   orbitControls.enabled = canControlSharedState;
+  isoPanel.setInteractive(canControlSharedState);
   for (const control of presenterControls) {
     control.disabled = !canControlSharedState;
   }
@@ -457,6 +460,11 @@ async function applyRemotePresenterState(state: PresenterState) {
       await loadTrajectoryFromUrl(state.trajectoryUrl, false);
       if (applyVersion !== remoteApplyVersion) return;
     }
+
+    // Mirror the presenter's isosurface list (no-op unless a cube is loaded).
+    // Guarded so an older room server that omits `surfaces` doesn't wipe the
+    // follower's own seeded surfaces.
+    if (Array.isArray(state.surfaces)) isoPanel.applySurfaces(state.surfaces);
 
     applyMoleculeTransform(state.transform);
     if (state.view) {

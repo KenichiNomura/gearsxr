@@ -12,6 +12,14 @@ export interface ViewState {
   orbitTarget: Vec3Tuple;
 }
 
+/** One isosurface of the current cube: level, color (0xRRGGBB), opacity, visibility. */
+export interface SurfaceState {
+  isovalue: number;
+  color: number;
+  opacity: number;
+  visible: boolean;
+}
+
 export interface PresenterState {
   trajectoryUrl: string | null;
   frameIndex: number;
@@ -20,6 +28,7 @@ export interface PresenterState {
   backgroundId: string;
   transform: TransformState;
   view: ViewState;
+  surfaces: SurfaceState[];
   presenterId: string | null;
   updatedAt: number;
 }

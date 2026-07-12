@@ -24,6 +24,13 @@ interface ViewState {
   orbitTarget: Vec3Tuple;
 }
 
+interface SurfaceState {
+  isovalue: number;
+  color: number;
+  opacity: number;
+  visible: boolean;
+}
+
 interface PresenterState {
   trajectoryUrl: string | null;
   frameIndex: number;
@@ -32,6 +39,7 @@ interface PresenterState {
   backgroundId: string;
   transform: TransformState;
   view: ViewState;
+  surfaces: SurfaceState[];
   presenterId: string | null;
   updatedAt: number;
 }
@@ -59,6 +67,7 @@ const DEFAULT_ALLOWED_ORIGINS = new Set([
   "https://www.gearsxr.space",
 ]);
 const DEFAULT_MAX_ROOM_USERS = 6;
+const MAX_SURFACES = 6;
 const DEFAULT_MAX_MESSAGE_BYTES = 8192;
 const DEFAULT_MAX_MESSAGES_PER_10_SECONDS = 240;
 const RATE_WINDOW_MS = 10_000;
@@ -107,6 +116,7 @@ function makeDefaultState(): PresenterState {
     backgroundId: DEFAULT_BACKGROUND_ID,
     transform: DEFAULT_TRANSFORM,
     view: DEFAULT_VIEW,
+    surfaces: [],
     presenterId: null,
     updatedAt: Date.now(),
   };
@@ -199,6 +209,25 @@ function normalizeBackgroundId(value: unknown, fallback: string) {
   return typeof value === "string" && VALID_BACKGROUND_IDS.has(value) ? value : fallback;
 }
 
+// Isosurface list: at most MAX_SURFACES entries; each needs a finite isovalue,
+// a color clamped to a 24-bit int, and an opacity clamped to [0, 1].
+function normalizeSurfaces(input: unknown, fallback: SurfaceState[]): SurfaceState[] {
+  if (!Array.isArray(input)) return fallback;
+  const surfaces: SurfaceState[] = [];
+  for (const item of input.slice(0, MAX_SURFACES)) {
+    if (!item || typeof item !== "object") continue;
+    const surface = item as Partial<SurfaceState>;
+    if (!isFiniteNumber(surface.isovalue) || !isFiniteNumber(surface.color) || !isFiniteNumber(surface.opacity)) continue;
+    surfaces.push({
+      isovalue: surface.isovalue,
+      color: Math.max(0, Math.min(0xffffff, Math.floor(surface.color))),
+      opacity: Math.max(0, Math.min(1, surface.opacity)),
+      visible: typeof surface.visible === "boolean" ? surface.visible : true,
+    });
+  }
+  return surfaces;
+}
+
 function mergePresenterState(current: PresenterState, patch: Partial<PresenterState>): PresenterState {
   const frameIndex = isFiniteNumber(patch.frameIndex) ? Math.max(0, Math.floor(patch.frameIndex)) : current.frameIndex;
   const fps = isFiniteNumber(patch.fps) ? Math.min(60, Math.max(1, Math.round(patch.fps))) : current.fps;
@@ -212,6 +241,7 @@ function mergePresenterState(current: PresenterState, patch: Partial<PresenterSt
     backgroundId: normalizeBackgroundId(patch.backgroundId, current.backgroundId),
     transform: normalizeTransform(patch.transform, current.transform),
     view: normalizeView(patch.view, current.view ?? DEFAULT_VIEW),
+    surfaces: normalizeSurfaces(patch.surfaces, current.surfaces ?? []),
     presenterId: current.presenterId,
     updatedAt: Date.now(),
   };
