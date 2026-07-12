@@ -12,6 +12,7 @@ GEARS XR (Extended Reality) is a browser-based molecular dynamics trajectory vie
 - Load extended XYZ trajectories from a local file, drag-and-drop, or URL — including Google Drive, Dropbox, OneDrive, and GitHub share links.
 - Play multi-frame trajectories with a frame slider, step buttons, and FPS control.
 - Color atoms by element and compute bonds per frame from covalent radii.
+- Visualize a 3D isosurface of a scalar field (electron density, molecular orbitals) from a Gaussian Cube file, with an adjustable isovalue and signed ± lobes.
 - Measure distances (2 atoms) and angles (3 atoms) on desktop and in VR.
 - Choose bundled 360-degree VR backgrounds.
 - Enter VR through WebXR; grab, move, and scale the molecule with controllers.
@@ -36,7 +37,11 @@ Element x y z ...
 Element x y z ...
 ```
 
-For extended XYZ files, the parser reads `Properties=...` metadata to find species, position, and atom-ID columns. When atom IDs are present, each frame is reordered to the first frame's ID order so atom identity stays stable across the trajectory. Atom types are stored per frame, so color and bond-radius logic follow the current frame. URL loads accept only `https://` links, and when the URL shows a file name it must end in `.xyz` or `.extxyz`.
+For extended XYZ files, the parser reads `Properties=...` metadata to find species, position, and atom-ID columns. When atom IDs are present, each frame is reordered to the first frame's ID order so atom identity stays stable across the trajectory. Atom types are stored per frame, so color and bond-radius logic follow the current frame. URL loads accept only `https://` links, and when the URL shows a file name it must end in `.xyz`, `.extxyz`, `.cube`, or `.cub`.
+
+### Gaussian Cube (volumetric)
+
+A `.cube` / `.cub` file carries both atom coordinates and a scalar field on a regular grid (electron density, a molecular orbital, electrostatic potential). GEARS XR renders the atoms plus a marching-cubes isosurface — a blue positive lobe and, in signed mode, a red negative lobe — with an adjustable isovalue and opacity. Bohr units (the cube default) are converted to Ångström; a negative voxel count is treated as Ångström. A cube is a single structure, so it loads without the playback timeline. Marching-cubes extraction runs in a Web Worker to keep the view responsive. Try the bundled sample at `samples/orbital.cube`. Note: very large cubes fetched through the room-server `/proxy` are still bounded by its size cap; direct URLs and local files use the larger 200 MB frontend limit.
 
 ## Development
 

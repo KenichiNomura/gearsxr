@@ -31,3 +31,24 @@ export const ELEMENT_TABLE: Record<string, ElementInfo> = {
 export function getElementInfo(symbol: string): ElementInfo {
   return ELEMENT_TABLE[symbol] ?? DEFAULT;
 }
+
+// Symbols indexed by atomic number (index 0 is a placeholder so Z maps directly).
+// Gaussian Cube files identify atoms by atomic number rather than symbol.
+const SYMBOLS_BY_ATOMIC_NUMBER = [
+  "X",
+  "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+  "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar", "K", "Ca",
+  "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
+  "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr",
+  "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn",
+  "Sb", "Te", "I", "Xe", "Cs", "Ba", "La", "Ce", "Pr", "Nd",
+  "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb",
+  "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
+  "Tl", "Pb", "Bi", "Po", "At", "Rn", "Fr", "Ra", "Ac", "Th",
+  "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es", "Fm",
+  "Md", "No", "Lr",
+];
+
+export function symbolForAtomicNumber(z: number): string {
+  return SYMBOLS_BY_ATOMIC_NUMBER[z] ?? "X";
+}

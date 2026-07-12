@@ -1,7 +1,8 @@
-// Fetches a trajectory URL with strict validation: scheme/filename checks,
-// share-link rewriting, a direct fetch with the room-server proxy as CORS
-// fallback, and an allowlist-based content check that rejects anything that
-// does not positively look like an XYZ file before the full download.
+// Fetches a trajectory/volume URL with strict validation: scheme/filename
+// checks, share-link rewriting, a direct fetch with the room-server proxy as
+// CORS fallback, and an allowlist-based content check that rejects anything
+// that does not positively look like an XYZ or Gaussian Cube file before the
+// full download.
 
 import { getFrameLayout } from "./xyzParser";
 import { resolveTrajectoryUrl, validateTrajectoryUrl } from "./shareLinks";
@@ -15,6 +16,7 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "application/octet-stream",
   "binary/octet-stream",
   "chemical/x-xyz",
+  "chemical/x-cube",
 ]);
 
 export interface FetchTrajectoryOptions {
@@ -35,19 +37,19 @@ function checkContentType(response: Response) {
   if (!type || ALLOWED_CONTENT_TYPES.has(type)) return;
   if (type === "text/html") {
     throw new Error(
-      'This URL returned a web page, not an XYZ file. Make sure the share link is public ("Anyone with the link").',
+      'This URL returned a web page, not a data file. Make sure the share link is public ("Anyone with the link").',
     );
   }
-  throw new Error(`Unexpected content type "${type}" — expected a plain-text XYZ file.`);
+  throw new Error(`Unexpected content type "${type}" — expected a plain-text XYZ or Cube file.`);
 }
 
 /**
- * Validates that the first bytes of the download match the XYZ grammar:
- * clean text, an atom-count first line, and well-formed atom lines. Throws
- * with the failing check; when `isComplete` is false the final (possibly
- * partial) line is ignored.
+ * Validates that the first bytes of the download look like a supported
+ * plain-text structure file — either an XYZ trajectory or a Gaussian Cube
+ * volume. Throws when neither grammar matches (e.g. an HTML error page); when
+ * `isComplete` is false the final (possibly partial) line is ignored.
  */
-function sniffXyzText(rawText: string, isComplete: boolean) {
+function sniffTrajectoryText(rawText: string, isComplete: boolean) {
   const text = rawText.replace(/^\uFEFF/, "");
   if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(text)) {
     throw new Error("This URL did not return a plain text file.");
@@ -56,6 +58,44 @@ function sniffXyzText(rawText: string, isComplete: boolean) {
   const lines = text.split("\n").map((line) => line.replace(/\r$/, ""));
   if (!isComplete) lines.pop();
 
+  // XYZ starts with an atom count; Cube starts with two comment lines. Try XYZ
+  // first and fall back to the Cube grammar so both formats pass the same gate.
+  try {
+    sniffXyzLines(lines, isComplete);
+  } catch (xyzError) {
+    try {
+      sniffCubeLines(lines, isComplete);
+    } catch {
+      throw xyzError;
+    }
+  }
+}
+
+/**
+ * Cube: two free-text comment lines, then an atom-count line and three grid
+ * lines that each begin with an integer followed by three numbers.
+ */
+function sniffCubeLines(lines: string[], isComplete: boolean) {
+  if (lines.length < 6) {
+    if (!isComplete) return; // not enough bytes yet to judge
+    throw new Error("File is too short to be a Gaussian Cube file.");
+  }
+  const headerRow = (line: string | undefined) => {
+    const parts = (line ?? "").trim().split(/\s+/);
+    return (
+      parts.length >= 4 &&
+      /^-?\d+$/.test(parts[0]) &&
+      parts.slice(1, 4).every((p) => Number.isFinite(parseFloat(p)))
+    );
+  };
+  for (let i = 2; i <= 5; i++) {
+    if (!headerRow(lines[i])) {
+      throw new Error("File does not match the Gaussian Cube header layout.");
+    }
+  }
+}
+
+function sniffXyzLines(lines: string[], isComplete: boolean) {
   let index = 0;
   while (index < lines.length && lines[index].trim().length === 0) index++;
   const countLine = lines[index]?.trim();
@@ -124,7 +164,7 @@ async function fetchAndValidate(url: string, signal?: AbortSignal): Promise<Blob
   if (!response.body) {
     const blob = await response.blob();
     if (blob.size > MAX_TRAJECTORY_BYTES) throw new Error("File is too large.");
-    sniffXyzText(await blob.slice(0, SNIFF_BYTES).text(), blob.size <= SNIFF_BYTES);
+    sniffTrajectoryText(await blob.slice(0, SNIFF_BYTES).text(), blob.size <= SNIFF_BYTES);
     return blob;
   }
 
@@ -144,7 +184,7 @@ async function fetchAndValidate(url: string, signal?: AbortSignal): Promise<Blob
       }
       if (!sniffed && received >= SNIFF_BYTES) {
         sniffed = true;
-        sniffXyzText(decoder.decode(concatBytes(chunks, SNIFF_BYTES)), false);
+        sniffTrajectoryText(decoder.decode(concatBytes(chunks, SNIFF_BYTES)), false);
       }
     }
   } catch (err) {
@@ -152,15 +192,16 @@ async function fetchAndValidate(url: string, signal?: AbortSignal): Promise<Blob
     throw err;
   }
   if (!sniffed) {
-    sniffXyzText(decoder.decode(concatBytes(chunks, SNIFF_BYTES)), received <= SNIFF_BYTES);
+    sniffTrajectoryText(decoder.decode(concatBytes(chunks, SNIFF_BYTES)), received <= SNIFF_BYTES);
   }
   return new Blob(chunks as BlobPart[]);
 }
 
 /**
- * Fetches and validates a trajectory URL. Share links are rewritten to their
- * direct-download form; when the direct fetch fails (usually CORS) and the
- * URL is a known cloud-storage link, the room server's /proxy route is tried.
+ * Fetches and validates a trajectory/volume URL. Share links are rewritten to
+ * their direct-download form; when the direct fetch fails (usually CORS) and
+ * the URL is a known cloud-storage link, the room server's /proxy route is
+ * tried.
  */
 export async function fetchTrajectoryBlob(originalUrl: string, options: FetchTrajectoryOptions = {}): Promise<Blob> {
   const { proxyBase, signal, onStatus } = options;

@@ -74,6 +74,22 @@
         display: inline-flex !important; align-items: center; gap: 4px;
         margin: 6px 0 0 4px !important;
       }
+      #isosurface {
+        position: fixed; left: 16px; bottom: 16px; z-index: 12;
+        width: min(360px, calc(100vw - 32px)); box-sizing: border-box;
+        font-family: system-ui, sans-serif; color: #eee;
+        background: rgba(20,20,20,0.85); padding: 10px 12px;
+        border-radius: 8px;
+      }
+      #isosurface h2 { font-size: 14px; margin: 0; font-weight: 600; }
+      #isosurface label { display: block; font-size: 12px; margin: 8px 0 2px; }
+      #isosurface input[type="range"] { width: 100%; }
+      .isoRow { display: flex; gap: 16px; align-items: center; margin-top: 8px; }
+      .isoRow label { display: inline-flex; align-items: center; gap: 5px; margin: 0; }
+      .isoLegend { display: flex; gap: 14px; align-items: center; font-size: 11px; opacity: 0.8; margin-top: 8px; }
+      .isoLegend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
+      .isoLegend .pos { background: #3b82f6; }
+      .isoLegend .neg { background: #ef4444; }
       #vrEntry {
         position: fixed; top: 12px; right: 16px; z-index: 20;
         margin: 0; pointer-events: auto;
@@ -100,7 +116,7 @@
         <button id="toggleControlsBtn" type="button" aria-controls="controlsContent" aria-expanded="true">Hide</button>
       </div>
       <div id="controlsContent">
-        <label for="fileInput">Load extended XYZ file (or drag &amp; drop anywhere)</label>
+        <label for="fileInput">Load an XYZ trajectory or Gaussian Cube file (or drag &amp; drop anywhere)</label>
         <input id="fileInput" type="file" />
         <label for="urlInput" style="margin-top:8px">Or load from a URL (direct link, or a Google Drive / Dropbox / OneDrive share link)</label>
         <input id="urlInput" type="text" placeholder="https://.../trajectory.xyz or a share link" value="https://gearsxr.space/samples/tobe.xyz" />
@@ -146,6 +162,21 @@
         <label class="fpsControl">FPS
           <input id="fpsInput" type="number" min="1" max="60" value="15" style="width:48px" />
         </label>
+      </div>
+    </div>
+    <div id="isosurface" style="display:none">
+      <h2>Isosurface</h2>
+      <label>Isovalue: <span id="isoValueLabel">0</span></label>
+      <input id="isoValue" type="range" min="0" max="1" step="0.001" value="0.1" />
+      <label for="isoOpacity">Opacity</label>
+      <input id="isoOpacity" type="range" min="0.1" max="1" step="0.05" value="0.55" />
+      <div class="isoRow">
+        <label><input id="isoSigned" type="checkbox" /> Show &plusmn; lobes</label>
+        <label><input id="isoVisible" type="checkbox" checked /> Visible</label>
+      </div>
+      <div class="isoLegend">
+        <span><span class="dot pos"></span>positive</span>
+        <span><span class="dot neg"></span>negative</span>
       </div>
     </div>
     <div id="vrEntry"></div>

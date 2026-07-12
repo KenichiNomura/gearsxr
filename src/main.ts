@@ -1,8 +1,11 @@
 import * as THREE from "three";
 import { VRButton } from "three/examples/jsm/webxr/VRButton.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { parseExtendedXYZ } from "./xyzParser";
+import { parseExtendedXYZ, type Trajectory } from "./xyzParser";
+import { parseCubeVolume, type CubeVolume } from "./cubeParser";
+import { symbolForAtomicNumber } from "./elements";
 import { MoleculeRenderer } from "./moleculeRenderer";
+import { IsosurfaceRenderer } from "./isosurfaceRenderer";
 import { VRObjectManipulator } from "./vrInteraction";
 import { MeasurementTool } from "./measurement";
 import { Playback } from "./playback";
@@ -38,6 +41,12 @@ const urlInput = $<HTMLInputElement>("urlInput");
 const loadUrlBtn = $<HTMLButtonElement>("loadUrlBtn");
 const backgroundSelect = $<HTMLSelectElement>("backgroundSelect");
 const vrEntryEl = $("vrEntry");
+const isosurfaceEl = $("isosurface");
+const isoValueSlider = $<HTMLInputElement>("isoValue");
+const isoValueLabel = $("isoValueLabel");
+const isoOpacitySlider = $<HTMLInputElement>("isoOpacity");
+const isoSignedToggle = $<HTMLInputElement>("isoSigned");
+const isoVisibleToggle = $<HTMLInputElement>("isoVisible");
 const playbackEl = $("playback");
 const frameSlider = $<HTMLInputElement>("frameSlider");
 const frameLabel = $("frameLabel");
@@ -109,6 +118,8 @@ grid.position.y = 0;
 scene.add(grid);
 
 let moleculeRenderer: MoleculeRenderer | null = null;
+let isosurfaceRenderer: IsosurfaceRenderer | null = null;
+let isoValueDebounce = 0;
 let playback: Playback | null = null;
 let currentTrajectoryUrl: string | null = null;
 let pendingTrajectoryUrl: string | null = null;
@@ -506,6 +517,121 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "c" || e.key === "C") measurementTool.clear();
 });
 
+type TrajectoryFormat = "xyz" | "cube";
+
+function looksLikeCubeHead(head: string): boolean {
+  const lines = head.split(/\r?\n/);
+  if (/^\s*\d+\s*$/.test(lines[0] ?? "")) return false; // XYZ atom-count first line
+  const gridLine = (lines[2] ?? "").trim().split(/\s+/);
+  return (
+    gridLine.length >= 4 &&
+    /^-?\d+$/.test(gridLine[0]) &&
+    gridLine.slice(1, 4).every((p) => Number.isFinite(parseFloat(p)))
+  );
+}
+
+async function detectTrajectoryFormat(file: Blob, sourceUrl: string | null): Promise<TrajectoryFormat> {
+  const name = (sourceUrl ?? (file as File).name ?? "").toLowerCase();
+  if (name.endsWith(".cube") || name.endsWith(".cub")) return "cube";
+  if (name.endsWith(".xyz") || name.endsWith(".extxyz")) return "xyz";
+  // Extension-less (e.g. Drive download URLs): peek at the first bytes.
+  return looksLikeCubeHead(await file.slice(0, 1024).text()) ? "cube" : "xyz";
+}
+
+function cubeToTrajectory(volume: CubeVolume): Trajectory {
+  const numAtoms = volume.atoms.length;
+  const symbols = volume.atoms.map((atom) => symbolForAtomicNumber(atom.atomicNumber));
+  const positions = new Float32Array(numAtoms * 3);
+  volume.atoms.forEach((atom, i) => {
+    positions[i * 3] = atom.position[0];
+    positions[i * 3 + 1] = atom.position[1];
+    positions[i * 3 + 2] = atom.position[2];
+  });
+  return { numFrames: 1, numAtoms, symbols, frameSymbols: symbols.slice(), positions, comments: [""] };
+}
+
+function atomsCentroid(volume: CubeVolume): [number, number, number] {
+  const centroid: [number, number, number] = [0, 0, 0];
+  for (const atom of volume.atoms) {
+    centroid[0] += atom.position[0];
+    centroid[1] += atom.position[1];
+    centroid[2] += atom.position[2];
+  }
+  const n = Math.max(1, volume.atoms.length);
+  return [centroid[0] / n, centroid[1] / n, centroid[2] / n];
+}
+
+function disposeIsosurface() {
+  if (!isosurfaceRenderer) return;
+  moleculeRoot.remove(isosurfaceRenderer.group);
+  isosurfaceRenderer.dispose();
+  isosurfaceRenderer = null;
+}
+
+function showIsosurfacePanel(volume: CubeVolume): { isovalue: number; signed: boolean } {
+  const maxAbs = Math.max(Math.abs(volume.min), Math.abs(volume.max)) || 1;
+  const signed = volume.min < -1e-6 * maxAbs;
+  const isovalue = maxAbs * 0.3;
+
+  isoValueSlider.min = String(maxAbs * 0.01);
+  isoValueSlider.max = String(maxAbs * 0.95);
+  isoValueSlider.step = String(maxAbs / 400);
+  isoValueSlider.value = String(isovalue);
+  isoValueLabel.textContent = isovalue.toPrecision(3);
+  isoSignedToggle.checked = signed;
+  isoVisibleToggle.checked = true;
+  isosurfaceEl.style.display = "block";
+  return { isovalue, signed };
+}
+
+async function loadCubeVolume(
+  file: Blob,
+  sourceUrl: string | null,
+  broadcastState: boolean,
+  loadVersion: number,
+) {
+  statusEl.textContent = "Parsing cube...";
+  const volume = await parseCubeVolume(file, (p) => {
+    if (loadVersion !== trajectoryLoadVersion) return;
+    const pct = ((p.pointsRead / p.totalPoints) * 100).toFixed(0);
+    statusEl.textContent = `Parsing cube... ${pct}% (${p.totalPoints.toLocaleString()} points)`;
+  });
+  if (loadVersion !== trajectoryLoadVersion) return;
+
+  if (moleculeRenderer) {
+    moleculeRoot.remove(moleculeRenderer.group);
+    moleculeRenderer.dispose();
+  }
+  disposeIsosurface();
+
+  moleculeRenderer = new MoleculeRenderer(cubeToTrajectory(volume));
+  moleculeRoot.add(moleculeRenderer.group);
+  moleculeRoot.position.set(0, 0, 0);
+  moleculeRoot.quaternion.identity();
+  moleculeRoot.scale.set(1, 1, 1);
+  lastObservedTransform = objectTransformSignature(moleculeRoot);
+  measurementTool.clear();
+  currentTrajectoryUrl = sourceUrl;
+
+  // A cube is a single structure — no trajectory frames.
+  playback = null;
+  playbackEl.style.display = "none";
+  document.body.classList.remove("has-playback");
+
+  const { isovalue, signed } = showIsosurfacePanel(volume);
+  isosurfaceRenderer = new IsosurfaceRenderer(volume, atomsCentroid(volume), {
+    isovalue,
+    signed,
+    onStatus: (text) => {
+      if (loadVersion === trajectoryLoadVersion && text) statusEl.textContent = text;
+    },
+  });
+  moleculeRoot.add(isosurfaceRenderer.group);
+
+  statusEl.textContent = `Loaded ${volume.atoms.length} atoms, ${volume.grid.nx}x${volume.grid.ny}x${volume.grid.nz} grid`;
+  if (broadcastState) markPresenterStateDirty(true);
+}
+
 async function loadTrajectoryFile(
   file: Blob,
   sourceUrl: string | null = null,
@@ -517,8 +643,33 @@ async function loadTrajectoryFile(
     activeTrajectoryFetch = null;
     pendingTrajectoryUrl = null;
   }
+
+  let format: TrajectoryFormat;
+  try {
+    format = await detectTrajectoryFormat(file, sourceUrl);
+  } catch (err) {
+    if (loadVersion !== trajectoryLoadVersion) return;
+    statusEl.textContent = `Error: ${(err as Error).message}`;
+    return;
+  }
+  if (loadVersion !== trajectoryLoadVersion) return;
+
+  if (format === "cube") {
+    try {
+      await loadCubeVolume(file, sourceUrl, broadcastState, loadVersion);
+    } catch (err) {
+      if (loadVersion !== trajectoryLoadVersion) return;
+      console.error(err);
+      statusEl.textContent = `Error: ${(err as Error).message}`;
+    }
+    return;
+  }
+
   statusEl.textContent = "Parsing...";
   try {
+    // Loading an XYZ trajectory clears any cube isosurface from a prior load.
+    disposeIsosurface();
+    isosurfaceEl.style.display = "none";
     const trajectory = await parseExtendedXYZ(file, (p) => {
       if (loadVersion !== trajectoryLoadVersion) return;
       const pct = ((p.bytesRead / p.totalBytes) * 100).toFixed(0);
@@ -658,6 +809,26 @@ fpsInput.addEventListener("change", () => applyFpsInput(true));
 
 backgroundSelect.addEventListener("change", () => {
   void setSceneBackground(backgroundSelect.value, { broadcastState: true, persist: true });
+});
+
+isoValueSlider.addEventListener("input", () => {
+  const value = parseFloat(isoValueSlider.value);
+  isoValueLabel.textContent = value.toPrecision(3);
+  // Debounce so dragging the slider doesn't flood the worker with extractions.
+  window.clearTimeout(isoValueDebounce);
+  isoValueDebounce = window.setTimeout(() => isosurfaceRenderer?.setIsovalue(value), 60);
+});
+
+isoOpacitySlider.addEventListener("input", () => {
+  isosurfaceRenderer?.setOpacity(parseFloat(isoOpacitySlider.value));
+});
+
+isoSignedToggle.addEventListener("change", () => {
+  isosurfaceRenderer?.setSignedMode(isoSignedToggle.checked);
+});
+
+isoVisibleToggle.addEventListener("change", () => {
+  isosurfaceRenderer?.setVisible(isoVisibleToggle.checked);
 });
 
 roomInput.addEventListener("input", updateRoomCodeUi);

@@ -9,7 +9,7 @@ export interface ResolvedTrajectoryUrl {
   isCloudShare: boolean;
 }
 
-const ALLOWED_EXTENSIONS = [".xyz", ".extxyz"];
+const ALLOWED_EXTENSIONS = [".xyz", ".extxyz", ".cube", ".cub"];
 
 function base64UrlEncode(value: string) {
   return btoa(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
