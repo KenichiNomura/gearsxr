@@ -22,8 +22,8 @@
     </style>
   </defs>
   <rect class="page" width="1100" height="800"/>
-  <text x="54" y="62" fill="#0f172a" font="800 28px system-ui, sans-serif">Room panel: share a synchronized view</text>
-  <text x="54" y="88" fill="#64748b" font="16px system-ui, sans-serif">Open the collapsed room panel, share the short room code, join a room, and manage presenter control.</text>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Room panel: share a synchronized view</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Open the collapsed room panel, share the short room code, join a room, and manage presenter control.</text>
 
   <g transform="translate(70 128)">
     <rect class="mock" width="450" height="530" rx="18"/>

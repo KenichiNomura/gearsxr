@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560" role="img" aria-labelledby="title desc">
+  <title id="title">Watch together with a room code</title>
+  <desc id="desc">You load a molecule and copy the short room code; your friend types the same code and joins, and both browsers show the same moving molecule.</desc>
+  <defs>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0b1220" flood-opacity="0.16"/></filter>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#08131f"/><stop offset="1" stop-color="#05070c"/></linearGradient>
+    <style>
+      .page { fill: #f5f7fb; }
+      .screen { fill: url(#screen); stroke: #d6dde8; stroke-width: 2; filter: url(#shadow); }
+      .badge { fill: #22b8ff; stroke: #ffffff; stroke-width: 3; }
+      .badgeText { fill: white; font: 800 18px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+      .stepTitle { fill: #0f172a; font: 800 19px system-ui, sans-serif; }
+      .personLabel { fill: #0f172a; font: 800 17px system-ui, sans-serif; text-anchor: middle; }
+      .roleLabel { fill: #64748b; font: 14px system-ui, sans-serif; text-anchor: middle; }
+      .atomBond { stroke: #dce4ef; stroke-width: 6; stroke-linecap: round; }
+      .panel { fill: #151b24; stroke: #344255; stroke-width: 1.5; }
+      .field { fill: #0b1119; stroke: #657890; stroke-width: 1.5; }
+      .codeText { fill: #f8fafc; font: 800 20px system-ui, sans-serif; letter-spacing: 2px; }
+      .muted { fill: #93a4b8; font: 12px system-ui, sans-serif; }
+      .codePill { fill: #22b8ff; filter: url(#shadow); }
+      .codePillText { fill: #04202e; font: 800 24px system-ui, sans-serif; text-anchor: middle; letter-spacing: 3px; }
+      .flow { stroke: #22b8ff; stroke-width: 4; fill: none; stroke-linecap: round; stroke-dasharray: 2 12; }
+      .legendText { fill: #536273; font: 14px system-ui, sans-serif; }
+      .tip { fill: #e8f7ff; stroke: #9ddffc; stroke-width: 1.5; }
+      .tipText { fill: #075985; font: 700 15px system-ui, sans-serif; }
+    </style>
+    <marker id="flowHead" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0 0 L8 5 L0 10 z" fill="#22b8ff"/></marker>
+  </defs>
+  <rect class="page" width="1100" height="560"/>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Share one short code, watch the same molecule</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Both of you open gearsxr.space. One person shares a room code with the other.</text>
+
+  <!-- Your browser -->
+  <g transform="translate(54 150)">
+    <text class="personLabel" x="190" y="0">You</text>
+    <text class="roleLabel" x="190" y="22">load the molecule and share the code</text>
+    <g transform="translate(0 38)">
+      <rect class="screen" width="380" height="260" rx="18"/>
+      <g transform="translate(190 104)">
+        <line class="atomBond" x1="-44" y1="-12" x2="0" y2="26"/>
+        <line class="atomBond" x1="0" y1="26" x2="46" y2="-2"/>
+        <circle cx="-44" cy="-12" r="19" fill="#ff4d5a"/>
+        <circle cx="0" cy="26" r="24" fill="#9aa4b2"/>
+        <circle cx="46" cy="-2" r="16" fill="#ffd54f"/>
+      </g>
+      <g transform="translate(150 178)">
+        <rect class="panel" width="210" height="62" rx="9"/>
+        <text class="muted" x="14" y="22">Room code</text>
+        <rect class="field" x="14" y="30" width="112" height="24" rx="5"/>
+        <text class="codeText" x="26" y="48" font-size="15">abc123</text>
+        <rect x="136" y="30" width="62" height="24" rx="5" fill="#263244" stroke="#7f92aa" stroke-width="1.2"/>
+        <text class="muted" x="146" y="46">Copy</text>
+      </g>
+    </g>
+    <circle class="badge" cx="16" cy="52" r="20"/><text class="badgeText" x="16" y="53">1</text>
+  </g>
+
+  <!-- code pill traveling -->
+  <g transform="translate(468 260)">
+    <path class="flow" d="M-16 24 H180" marker-end="url(#flowHead)"/>
+    <rect class="codePill" x="16" y="-18" width="132" height="52" rx="26"/>
+    <text class="codePillText" x="82" y="15">abc123</text>
+    <text class="legendText" x="20" y="66">send it any way you like</text>
+    <text class="legendText" x="26" y="86">(chat, email, out loud)</text>
+  </g>
+
+  <!-- Friend's browser -->
+  <g transform="translate(666 150)">
+    <text class="personLabel" x="190" y="0">Your friend</text>
+    <text class="roleLabel" x="190" y="22">types the code and clicks Join</text>
+    <g transform="translate(0 38)">
+      <rect class="screen" width="380" height="260" rx="18"/>
+      <g transform="translate(190 104)">
+        <line class="atomBond" x1="-44" y1="-12" x2="0" y2="26"/>
+        <line class="atomBond" x1="0" y1="26" x2="46" y2="-2"/>
+        <circle cx="-44" cy="-12" r="19" fill="#ff4d5a"/>
+        <circle cx="0" cy="26" r="24" fill="#9aa4b2"/>
+        <circle cx="46" cy="-2" r="16" fill="#ffd54f"/>
+      </g>
+      <g transform="translate(150 178)">
+        <rect class="panel" width="210" height="62" rx="9"/>
+        <text class="muted" x="14" y="22">Room code</text>
+        <rect class="field" x="14" y="30" width="112" height="24" rx="5"/>
+        <text class="codeText" x="26" y="48" font-size="15">abc123</text>
+        <rect x="136" y="30" width="62" height="24" rx="5" fill="#22b8ff"/>
+        <text x="152" y="47" fill="#04202e" style="font: 800 13px system-ui, sans-serif;">Join</text>
+      </g>
+    </g>
+    <circle class="badge" cx="16" cy="52" r="20"/><text class="badgeText" x="16" y="53">2</text>
+  </g>
+
+  <g transform="translate(54 488)">
+    <rect class="tip" width="992" height="64" rx="12"/>
+    <text class="tipText" x="22" y="27">Load the molecule with Load URL (not Choose File) so everyone's browser can fetch the same file.</text>
+    <text class="tipText" x="22" y="49">The first person in the room controls playback; anyone can click Take Presenter.</text>
+  </g>
+</svg>

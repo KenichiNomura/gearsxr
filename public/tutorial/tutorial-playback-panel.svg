@@ -20,8 +20,8 @@
     </style>
   </defs>
   <rect class="page" width="1100" height="560"/>
-  <text x="54" y="62" fill="#0f172a" font="800 28px system-ui, sans-serif">Playback panel: inspect frames</text>
-  <text x="54" y="88" fill="#64748b" font="16px system-ui, sans-serif">The panel appears at the bottom-left after an XYZ trajectory is loaded.</text>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Playback panel: inspect frames</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">The panel appears at the bottom-left after an XYZ trajectory is loaded.</text>
 
   <g transform="translate(74 166)">
     <rect class="mock" width="500" height="154" rx="18"/>

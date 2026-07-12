@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="520" viewBox="0 0 1100 520" role="img" aria-labelledby="title desc">
+  <title id="title">Get started in three steps</title>
+  <desc id="desc">Three cards: open gearsxr.space in a browser, click Load URL to load the demo molecule, then click Play to watch it move.</desc>
+  <defs>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0b1220" flood-opacity="0.16"/></filter>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#08131f"/><stop offset="1" stop-color="#05070c"/></linearGradient>
+    <style>
+      .page { fill: #f5f7fb; }
+      .card { fill: #ffffff; stroke: #d8e0ea; stroke-width: 1.5; filter: url(#shadow); }
+      .screen { fill: url(#screen); stroke: #d6dde8; stroke-width: 2; }
+      .mock { fill: #151b24; stroke: #344255; stroke-width: 1.5; }
+      .field { fill: #0b1119; stroke: #657890; stroke-width: 1.5; }
+      .button { fill: #263244; stroke: #7f92aa; stroke-width: 1.5; }
+      .buttonHot { fill: #22b8ff; stroke: #bdeaff; stroke-width: 2; }
+      .buttonText { fill: #f8fafc; font: 800 14px system-ui, sans-serif; }
+      .buttonHotText { fill: #04202e; font: 800 14px system-ui, sans-serif; }
+      .muted { fill: #93a4b8; font: 13px system-ui, sans-serif; }
+      .badge { fill: #22b8ff; stroke: #ffffff; stroke-width: 3; }
+      .badgeText { fill: white; font: 800 20px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+      .stepTitle { fill: #0f172a; font: 800 19px system-ui, sans-serif; }
+      .stepText { fill: #536273; font: 14px system-ui, sans-serif; }
+      .arrow { stroke: #22b8ff; stroke-width: 4; fill: none; stroke-linecap: round; }
+      .atomBond { stroke: #dce4ef; stroke-width: 6; stroke-linecap: round; }
+      .cursor { fill: #ffffff; stroke: #0f172a; stroke-width: 1.6; }
+    </style>
+    <marker id="arrowHead" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0 0 L8 5 L0 10 z" fill="#22b8ff"/></marker>
+  </defs>
+  <rect class="page" width="1100" height="520"/>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Watch a molecule move in three clicks</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">The demo molecule is already filled in — no file needed.</text>
+
+  <!-- Step 1: open the site -->
+  <g transform="translate(54 130)">
+    <rect class="card" width="300" height="330" rx="18"/>
+    <circle class="badge" cx="34" cy="34" r="20"/><text class="badgeText" x="34" y="35">1</text>
+    <text class="stepTitle" x="66" y="41">Open the site</text>
+    <g transform="translate(26 66)">
+      <rect class="screen" width="248" height="170" rx="12"/>
+      <rect x="0" y="0" width="248" height="34" rx="12" fill="#1c2836"/>
+      <rect x="12" y="34" width="248" height="2" fill="none"/>
+      <circle cx="20" cy="17" r="5" fill="#ff5f57"/>
+      <circle cx="38" cy="17" r="5" fill="#febc2e"/>
+      <circle cx="56" cy="17" r="5" fill="#28c840"/>
+      <rect class="field" x="72" y="8" width="162" height="19" rx="9"/>
+      <text x="84" y="22" fill="#bfe9ff" style="font: 700 12px system-ui, sans-serif;">gearsxr.space</text>
+      <g transform="translate(124 106)">
+        <line class="atomBond" x1="-38" y1="-10" x2="0" y2="18"/>
+        <line class="atomBond" x1="0" y1="18" x2="40" y2="-4"/>
+        <circle cx="-38" cy="-10" r="17" fill="#ff4d5a"/>
+        <circle cx="0" cy="18" r="21" fill="#9aa4b2"/>
+        <circle cx="40" cy="-4" r="14" fill="#ffd54f"/>
+      </g>
+    </g>
+    <text class="stepText" x="26" y="268">Visit gearsxr.space in any</text>
+    <text class="stepText" x="26" y="288">modern browser — nothing</text>
+    <text class="stepText" x="26" y="308">to install.</text>
+  </g>
+
+  <path class="arrow" d="M366 290 H396" marker-end="url(#arrowHead)"/>
+
+  <!-- Step 2: Load URL -->
+  <g transform="translate(408 130)">
+    <rect class="card" width="300" height="330" rx="18"/>
+    <circle class="badge" cx="34" cy="34" r="20"/><text class="badgeText" x="34" y="35">2</text>
+    <text class="stepTitle" x="66" y="41">Click Load URL</text>
+    <g transform="translate(26 66)">
+      <rect class="mock" width="248" height="170" rx="12"/>
+      <text x="18" y="34" fill="#f5f8fc" style="font: 700 15px system-ui, sans-serif;">GEARS XR</text>
+      <text class="muted" x="18" y="62">Or load from a URL</text>
+      <rect class="field" x="18" y="74" width="212" height="26" rx="5"/>
+      <text x="28" y="92" fill="#bfe9ff" style="font: 600 11px system-ui, sans-serif;">.../samples/tobe.xyz</text>
+      <rect class="buttonHot" x="18" y="114" width="96" height="32" rx="6"/>
+      <text class="buttonHotText" x="32" y="135">Load URL</text>
+      <path class="cursor" d="M126 150 l0 -22 l16 15 l-7 1 l4 9 l-6 3 l-4 -9 z"/>
+    </g>
+    <text class="stepText" x="26" y="268">The URL box already holds a</text>
+    <text class="stepText" x="26" y="288">demo molecule. Just click</text>
+    <text class="stepText" x="26" y="308">the Load URL button.</text>
+  </g>
+
+  <path class="arrow" d="M720 290 H750" marker-end="url(#arrowHead)"/>
+
+  <!-- Step 3: Play -->
+  <g transform="translate(762 130)">
+    <rect class="card" width="300" height="330" rx="18"/>
+    <circle class="badge" cx="34" cy="34" r="20"/><text class="badgeText" x="34" y="35">3</text>
+    <text class="stepTitle" x="66" y="41">Click Play</text>
+    <g transform="translate(26 66)">
+      <rect class="mock" width="248" height="170" rx="12"/>
+      <text class="muted" x="18" y="32">Frame: 42 / 120</text>
+      <rect class="field" x="18" y="44" width="212" height="12" rx="6"/>
+      <rect x="18" y="44" width="86" height="12" rx="6" fill="#135a7a"/>
+      <circle cx="104" cy="50" r="10" fill="#22b8ff"/>
+      <rect class="buttonHot" x="18" y="76" width="72" height="32" rx="6"/>
+      <text class="buttonHotText" x="38" y="97">Play</text>
+      <rect class="button" x="100" y="76" width="36" height="32" rx="6"/>
+      <text class="buttonText" x="111" y="97">&lt;</text>
+      <rect class="button" x="146" y="76" width="36" height="32" rx="6"/>
+      <text class="buttonText" x="157" y="97">&gt;</text>
+      <path class="cursor" d="M78 128 l0 -22 l16 15 l-7 1 l4 9 l-6 3 l-4 -9 z"/>
+      <g transform="translate(190 132)">
+        <circle cx="0" cy="0" r="5" fill="#ff4d5a"/>
+        <circle cx="18" cy="8" r="6" fill="#9aa4b2"/>
+        <circle cx="34" cy="-2" r="4" fill="#ffd54f"/>
+        <path d="M-14 -14 q14 -12 28 -2" stroke="#22b8ff" stroke-width="2" fill="none" marker-end="url(#arrowHead)"/>
+      </g>
+    </g>
+    <text class="stepText" x="26" y="268">The playback panel appears</text>
+    <text class="stepText" x="26" y="288">at the bottom-left. Press</text>
+    <text class="stepText" x="26" y="308">Play — the molecule moves!</text>
+  </g>
+</svg>

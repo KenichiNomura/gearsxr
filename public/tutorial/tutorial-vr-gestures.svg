@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="560" viewBox="0 0 1100 560" role="img" aria-labelledby="title desc">
+  <title id="title">VR controller gestures</title>
+  <desc id="desc">Hold the trigger with one hand to move and rotate the molecule; hold both triggers and pull your hands apart or together to resize it.</desc>
+  <defs>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0b1220" flood-opacity="0.16"/></filter>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#08131f"/><stop offset="1" stop-color="#05070c"/></linearGradient>
+    <style>
+      .page { fill: #f5f7fb; }
+      .screen { fill: url(#screen); stroke: #d6dde8; stroke-width: 2; filter: url(#shadow); }
+      .badge { fill: #22b8ff; stroke: #ffffff; stroke-width: 3; }
+      .badgeText { fill: white; font: 800 18px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+      .stepTitle { fill: #0f172a; font: 800 19px system-ui, sans-serif; }
+      .atomBond { stroke: #dce4ef; stroke-width: 7; stroke-linecap: round; }
+      .controllerBody { fill: #263244; stroke: #8fa3bb; stroke-width: 2; }
+      .controllerRing { fill: none; stroke: #8fa3bb; stroke-width: 3; }
+      .trigger { fill: #22b8ff; stroke: #04202e; stroke-width: 1.5; }
+      .ray { stroke: #44ccff; stroke-width: 2.5; stroke-dasharray: 7 7; fill: none; }
+      .motion { stroke: #ffe75c; stroke-width: 3.5; fill: none; stroke-linecap: round; }
+      .hintText { fill: #bfe9ff; font: 700 15px system-ui, sans-serif; }
+    </style>
+    <marker id="motionHead" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto"><path d="M0 0 L7 4.5 L0 9 z" fill="#ffe75c"/></marker>
+  </defs>
+  <rect class="page" width="1100" height="560"/>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Handle the molecule with your controllers</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Once you are in VR, the molecule floats in front of you.</text>
+
+  <!-- one hand: move and rotate -->
+  <g transform="translate(54 130)">
+    <circle class="badge" cx="20" cy="10" r="20"/><text class="badgeText" x="20" y="11">1</text>
+    <text class="stepTitle" x="52" y="17">One hand: move &amp; turn</text>
+    <g transform="translate(0 40)">
+      <rect class="screen" width="480" height="300" rx="20"/>
+      <!-- molecule -->
+      <g transform="translate(310 110)">
+        <line class="atomBond" x1="-52" y1="-14" x2="-2" y2="30"/>
+        <line class="atomBond" x1="-2" y1="30" x2="52" y2="0"/>
+        <circle cx="-52" cy="-14" r="22" fill="#ff4d5a"/>
+        <circle cx="-2" cy="30" r="27" fill="#9aa4b2"/>
+        <circle cx="52" cy="0" r="18" fill="#ffd54f"/>
+        <path class="motion" d="M-10 -66 q58 -24 108 16" marker-end="url(#motionHead)"/>
+        <path class="motion" d="M-100 62 q-14 -50 20 -92" marker-end="url(#motionHead)"/>
+      </g>
+      <!-- ray from controller ring to molecule -->
+      <path class="ray" d="M140 196 L268 148"/>
+      <!-- controller: ring at top, body angled below -->
+      <g transform="translate(126 206) rotate(32)">
+        <rect class="controllerBody" x="-16" y="8" width="32" height="56" rx="14"/>
+        <circle class="controllerRing" cx="0" cy="-8" r="20"/>
+        <circle class="trigger" cx="0" cy="-8" r="7"/>
+      </g>
+      <text class="hintText" x="26" y="284">Hold the trigger and move your hand</text>
+    </g>
+  </g>
+
+  <!-- two hands: scale -->
+  <g transform="translate(566 130)">
+    <circle class="badge" cx="20" cy="10" r="20"/><text class="badgeText" x="20" y="11">2</text>
+    <text class="stepTitle" x="52" y="17">Two hands: resize</text>
+    <g transform="translate(0 40)">
+      <rect class="screen" width="480" height="300" rx="20"/>
+      <!-- molecule center -->
+      <g transform="translate(240 110)">
+        <line class="atomBond" x1="-40" y1="-10" x2="0" y2="24"/>
+        <line class="atomBond" x1="0" y1="24" x2="42" y2="-2"/>
+        <circle cx="-40" cy="-10" r="18" fill="#ff4d5a"/>
+        <circle cx="0" cy="24" r="23" fill="#9aa4b2"/>
+        <circle cx="42" cy="-2" r="15" fill="#ffd54f"/>
+      </g>
+      <!-- left controller -->
+      <g transform="translate(120 216) rotate(24)">
+        <rect class="controllerBody" x="-15" y="8" width="30" height="52" rx="13"/>
+        <circle class="controllerRing" cx="0" cy="-8" r="19"/>
+        <circle class="trigger" cx="0" cy="-8" r="6.5"/>
+      </g>
+      <path class="motion" d="M104 182 L62 148" marker-end="url(#motionHead)"/>
+      <!-- right controller -->
+      <g transform="translate(360 216) rotate(-24)">
+        <rect class="controllerBody" x="-15" y="8" width="30" height="52" rx="13"/>
+        <circle class="controllerRing" cx="0" cy="-8" r="19"/>
+        <circle class="trigger" cx="0" cy="-8" r="6.5"/>
+      </g>
+      <path class="motion" d="M376 182 L418 148" marker-end="url(#motionHead)"/>
+      <text class="hintText" x="40" y="284">Hold both triggers, pull apart to grow</text>
+    </g>
+  </g>
+</svg>

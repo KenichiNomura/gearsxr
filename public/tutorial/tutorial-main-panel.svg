@@ -22,8 +22,8 @@
     </style>
   </defs>
   <rect class="page" width="1100" height="680"/>
-  <text x="54" y="62" fill="#0f172a" font="800 28px system-ui, sans-serif">Main panel: load trajectories</text>
-  <text x="54" y="88" fill="#64748b" font="16px system-ui, sans-serif">Use this panel for file input, URL loading, background selection, and hiding controls.</text>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Main panel: load trajectories</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Use this panel for file input, URL loading, background selection, and hiding controls.</text>
 
   <g transform="translate(70 128)">
     <rect class="mock" width="450" height="386" rx="18"/>

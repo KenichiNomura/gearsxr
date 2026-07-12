@@ -21,8 +21,8 @@
     </style>
   </defs>
   <rect class="page" width="1100" height="560"/>
-  <text x="54" y="62" fill="#0f172a" font="800 28px system-ui, sans-serif">VR and measurements</text>
-  <text x="54" y="88" fill="#64748b" font="16px system-ui, sans-serif">Use the top-right VR button for headset mode, and select atoms for distance or angle readouts.</text>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">VR and measurements</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Use the top-right VR button for headset mode, and select atoms for distance or angle readouts.</text>
 
   <g transform="translate(70 128)">
     <rect class="screen" width="520" height="330" rx="22"/>

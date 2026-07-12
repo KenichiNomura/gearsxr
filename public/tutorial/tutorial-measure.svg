@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="600" viewBox="0 0 1100 600" role="img" aria-labelledby="title desc">
+  <title id="title">Measure distances and angles</title>
+  <desc id="desc">Click two atoms to see the distance between them, or three atoms to see the angle. Press C to clear the selection.</desc>
+  <defs>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0b1220" flood-opacity="0.16"/></filter>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#08131f"/><stop offset="1" stop-color="#05070c"/></linearGradient>
+    <style>
+      .page { fill: #f5f7fb; }
+      .screen { fill: url(#screen); stroke: #d6dde8; stroke-width: 2; filter: url(#shadow); }
+      .badge { fill: #22b8ff; stroke: #ffffff; stroke-width: 3; }
+      .badgeText { fill: white; font: 800 18px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+      .stepTitle { fill: #0f172a; font: 800 19px system-ui, sans-serif; }
+      .atomBond { stroke: #dce4ef; stroke-width: 7; stroke-linecap: round; }
+      .measureLine { stroke: #ffe75c; stroke-width: 3; }
+      .marker { fill: none; stroke: #ffe75c; stroke-width: 3.5; }
+      .readout { fill: #0b1119; stroke: #61738a; stroke-width: 1.5; }
+      .readoutText { fill: #ffe75c; font: 800 17px system-ui, sans-serif; }
+      .readoutSub { fill: #d9e2ef; font: 600 13px system-ui, sans-serif; }
+      .cursor { fill: #ffffff; stroke: #0f172a; stroke-width: 1.6; }
+      .tip { fill: #e8f7ff; stroke: #9ddffc; stroke-width: 1.5; }
+      .tipText { fill: #075985; font: 700 15px system-ui, sans-serif; }
+      .key { fill: #ffffff; stroke: #7f92aa; stroke-width: 1.5; }
+      .keyText { fill: #0f172a; font: 800 15px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
+    </style>
+  </defs>
+  <rect class="page" width="1100" height="600"/>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Measure atoms with clicks</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Works the same on desktop (mouse click) and in VR (point and select).</text>
+
+  <!-- two atoms = distance -->
+  <g transform="translate(54 130)">
+    <circle class="badge" cx="20" cy="10" r="20"/><text class="badgeText" x="20" y="11">2</text>
+    <text class="stepTitle" x="52" y="17">atoms = distance</text>
+    <g transform="translate(0 40)">
+      <rect class="screen" width="480" height="320" rx="20"/>
+      <g transform="translate(240 150)">
+        <line class="atomBond" x1="-90" y1="20" x2="0" y2="-30"/>
+        <line class="atomBond" x1="0" y1="-30" x2="95" y2="25"/>
+        <circle cx="-90" cy="20" r="26" fill="#ffffff"/>
+        <circle cx="0" cy="-30" r="32" fill="#ff4d5a"/>
+        <circle cx="95" cy="25" r="26" fill="#ffffff"/>
+        <line class="measureLine" x1="-90" y1="20" x2="0" y2="-30"/>
+        <circle class="marker" cx="-90" cy="20" r="33"/>
+        <circle class="marker" cx="0" cy="-30" r="39"/>
+        <path class="cursor" d="M12 -14 l0 -24 l17 16 l-7.5 1 l4.5 10 l-6.5 3 l-4.5 -10 z"/>
+      </g>
+      <g transform="translate(24 244)">
+        <rect class="readout" width="220" height="52" rx="9"/>
+        <text class="readoutSub" x="16" y="21">H#3 — O#0</text>
+        <text class="readoutText" x="16" y="42">Distance: 0.958 Å</text>
+      </g>
+    </g>
+  </g>
+
+  <!-- three atoms = angle -->
+  <g transform="translate(566 130)">
+    <circle class="badge" cx="20" cy="10" r="20"/><text class="badgeText" x="20" y="11">3</text>
+    <text class="stepTitle" x="52" y="17">atoms = angle</text>
+    <g transform="translate(0 40)">
+      <rect class="screen" width="480" height="320" rx="20"/>
+      <g transform="translate(240 150)">
+        <line class="atomBond" x1="-90" y1="20" x2="0" y2="-30"/>
+        <line class="atomBond" x1="0" y1="-30" x2="95" y2="25"/>
+        <circle cx="-90" cy="20" r="26" fill="#ffffff"/>
+        <circle cx="0" cy="-30" r="32" fill="#ff4d5a"/>
+        <circle cx="95" cy="25" r="26" fill="#ffffff"/>
+        <line class="measureLine" x1="-90" y1="20" x2="0" y2="-30"/>
+        <line class="measureLine" x1="0" y1="-30" x2="95" y2="25"/>
+        <path d="M -34 -11 A 39 39 0 0 1 33 -11" fill="none" stroke="#ffe75c" stroke-width="2.5" stroke-dasharray="5 5"/>
+        <circle class="marker" cx="-90" cy="20" r="33"/>
+        <circle class="marker" cx="0" cy="-30" r="39"/>
+        <circle class="marker" cx="95" cy="25" r="33"/>
+      </g>
+      <g transform="translate(24 244)">
+        <rect class="readout" width="220" height="52" rx="9"/>
+        <text class="readoutSub" x="16" y="21">H#3 — O#0 — H#7</text>
+        <text class="readoutText" x="16" y="42">Angle: 104.45°</text>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(54 536)">
+    <rect class="tip" width="992" height="48" rx="12"/>
+    <text class="tipText" x="70" y="30">Press the C key to clear your selection and start a new measurement.</text>
+    <rect class="key" x="22" y="10" width="30" height="28" rx="6"/>
+    <text class="keyText" x="37" y="25">C</text>
+  </g>
+</svg>

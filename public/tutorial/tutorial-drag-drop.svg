@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="520" viewBox="0 0 1100 520" role="img" aria-labelledby="title desc">
+  <title id="title">Drag and drop an XYZ file</title>
+  <desc id="desc">A molecule file is dragged from the desktop and dropped anywhere onto the GEARS XR window.</desc>
+  <defs>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0b1220" flood-opacity="0.16"/></filter>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#08131f"/><stop offset="1" stop-color="#05070c"/></linearGradient>
+    <style>
+      .page { fill: #f5f7fb; }
+      .screen { fill: url(#screen); stroke: #d6dde8; stroke-width: 2; filter: url(#shadow); }
+      .dropZone { fill: none; stroke: #44ccff; stroke-width: 3; stroke-dasharray: 14 10; }
+      .fileCard { fill: #ffffff; stroke: #c6d2e0; stroke-width: 2; filter: url(#shadow); }
+      .fileText { fill: #0f172a; font: 800 16px system-ui, sans-serif; }
+      .fileLine { stroke: #c6d2e0; stroke-width: 2; stroke-linecap: round; }
+      .muted { fill: #93a4b8; font: 14px system-ui, sans-serif; }
+      .legendCard { fill: #ffffff; stroke: #d8e0ea; stroke-width: 1.5; filter: url(#shadow); }
+      .legendTitle { fill: #0f172a; font: 800 18px system-ui, sans-serif; }
+      .legendText { fill: #536273; font: 14px system-ui, sans-serif; }
+      .atomBond { stroke: #dce4ef; stroke-width: 7; stroke-linecap: round; }
+      .arrow { stroke: #22b8ff; stroke-width: 4; fill: none; stroke-linecap: round; }
+      .cursor { fill: #ffffff; stroke: #0f172a; stroke-width: 1.6; }
+      .hint { fill: #bfe9ff; font: 700 17px system-ui, sans-serif; }
+      .tip { fill: #e8f7ff; stroke: #9ddffc; stroke-width: 1.5; }
+      .tipText { fill: #075985; font: 700 15px system-ui, sans-serif; }
+    </style>
+    <marker id="dropArrowHead" markerWidth="10" markerHeight="10" refX="7" refY="5" orient="auto"><path d="M0 0 L8 5 L0 10 z" fill="#22b8ff"/></marker>
+  </defs>
+  <rect class="page" width="1100" height="520"/>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Or just drop your file on the window</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Drag a .xyz file from your computer anywhere onto the page.</text>
+
+  <!-- file being dragged -->
+  <g transform="translate(96 170)">
+    <rect class="fileCard" width="128" height="150" rx="12"/>
+    <path d="M92 0 h20 a12 12 0 0 1 12 12 v14 z" fill="#e6edf5"/>
+    <line class="fileLine" x1="20" y1="58" x2="106" y2="58"/>
+    <line class="fileLine" x1="20" y1="78" x2="106" y2="78"/>
+    <line class="fileLine" x1="20" y1="98" x2="82" y2="98"/>
+    <text class="fileText" x="20" y="132">tobe.xyz</text>
+    <path class="cursor" d="M116 156 l0 -24 l17 16 l-7.5 1 l4.5 10 l-6.5 3 l-4.5 -10 z"/>
+  </g>
+
+  <path class="arrow" d="M248 245 C310 220, 350 220, 402 240" marker-end="url(#dropArrowHead)"/>
+
+  <!-- app window with drop zone -->
+  <g transform="translate(420 128)">
+    <rect class="screen" width="440" height="300" rx="20"/>
+    <rect class="dropZone" x="18" y="18" width="404" height="264" rx="14"/>
+    <g transform="translate(220 138)" opacity="0.9">
+      <line class="atomBond" x1="-52" y1="-14" x2="-2" y2="30"/>
+      <line class="atomBond" x1="-2" y1="30" x2="52" y2="0"/>
+      <line class="atomBond" x1="-2" y1="30" x2="20" y2="70"/>
+      <circle cx="-52" cy="-14" r="23" fill="#ff4d5a"/>
+      <circle cx="-2" cy="30" r="29" fill="#9aa4b2"/>
+      <circle cx="52" cy="0" r="19" fill="#ffd54f"/>
+      <circle cx="20" cy="70" r="15" fill="#ffffff"/>
+    </g>
+    <text class="hint" x="150" y="52">Drop it anywhere</text>
+  </g>
+
+  <!-- legend -->
+  <g transform="translate(902 150)">
+    <rect class="legendCard" width="150" height="256" rx="16"/>
+    <text class="legendTitle" x="22" y="40">Tips</text>
+    <text class="legendText" x="22" y="72">Works with</text>
+    <text class="legendText" x="22" y="92">.xyz and</text>
+    <text class="legendText" x="22" y="112">.extxyz files.</text>
+    <text class="legendText" x="22" y="152">Choose File in</text>
+    <text class="legendText" x="22" y="172">the main panel</text>
+    <text class="legendText" x="22" y="192">does the same</text>
+    <text class="legendText" x="22" y="212">thing.</text>
+  </g>
+
+  <g transform="translate(54 452)">
+    <rect class="tip" width="998" height="48" rx="12"/>
+    <text class="tipText" x="22" y="30">Dropped files stay on your computer — nothing is uploaded. For shared rooms, use a link instead (see Watch together).</text>
+  </g>
+</svg>

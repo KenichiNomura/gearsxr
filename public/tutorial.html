@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GEARS XR Tutorial — Watch molecules move</title>
+    <meta name="description" content="A friendly, step-by-step guide to GEARS XR: load a molecule, play its motion, measure atoms, watch together with friends, and go VR." />
+    <style>
+      :root {
+        --bg: #111317;
+        --card: #191e26;
+        --card-border: #2b3442;
+        --text: #e8edf4;
+        --muted: #9aa8ba;
+        --accent: #22b8ff;
+        --accent-soft: #bfe9ff;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, sans-serif;
+        line-height: 1.6;
+        font-size: 17px;
+      }
+      a { color: var(--accent); }
+      main { max-width: 820px; margin: 0 auto; padding: 0 20px 80px; }
+
+      header.hero {
+        text-align: center;
+        padding: 72px 20px 56px;
+        background:
+          radial-gradient(ellipse 60% 50% at 50% 0%, rgba(34, 184, 255, 0.14), transparent),
+          var(--bg);
+      }
+      header.hero h1 {
+        font-size: clamp(30px, 6vw, 44px);
+        font-weight: 800;
+        margin: 0 0 12px;
+        letter-spacing: -0.02em;
+      }
+      header.hero h1 .xr { color: var(--accent); }
+      header.hero p.tagline {
+        font-size: clamp(17px, 3vw, 21px);
+        color: var(--muted);
+        margin: 0 auto 32px;
+        max-width: 560px;
+      }
+      .cta {
+        display: inline-block;
+        background: var(--accent);
+        color: #04202e;
+        font-weight: 800;
+        font-size: 18px;
+        text-decoration: none;
+        padding: 14px 34px;
+        border-radius: 999px;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+        box-shadow: 0 8px 30px rgba(34, 184, 255, 0.35);
+      }
+      .cta:hover { transform: translateY(-2px); box-shadow: 0 12px 36px rgba(34, 184, 255, 0.45); }
+      .cta-note { display: block; margin-top: 14px; font-size: 14px; color: var(--muted); }
+
+      section { margin-top: 72px; }
+      section h2 {
+        font-size: clamp(23px, 4vw, 30px);
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        margin: 0 0 6px;
+      }
+      section p.lead { color: var(--muted); margin: 0 0 22px; }
+      .kicker {
+        display: block;
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        margin-bottom: 6px;
+      }
+
+      figure { margin: 0 0 20px; }
+      figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 16px;
+        border: 1px solid var(--card-border);
+        background: #f5f7fb;
+      }
+      figure.photo img { background: #000; }
+      figcaption { font-size: 14px; color: var(--muted); margin-top: 8px; text-align: center; }
+
+      .steps { list-style: none; counter-reset: step; padding: 0; margin: 0 0 20px; }
+      .steps li {
+        counter-increment: step;
+        position: relative;
+        padding: 0 0 14px 52px;
+      }
+      .steps li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0; top: 1px;
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #04202e;
+        font-weight: 800;
+        font-size: 17px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .steps b, section p b { color: var(--accent-soft); }
+
+      .tip {
+        background: rgba(34, 184, 255, 0.08);
+        border: 1px solid rgba(34, 184, 255, 0.25);
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 15px;
+        color: var(--accent-soft);
+        margin: 20px 0 0;
+      }
+      .tip b { color: #fff; }
+
+      kbd {
+        background: #262f3d;
+        border: 1px solid #4a5a70;
+        border-bottom-width: 3px;
+        border-radius: 6px;
+        padding: 1px 8px;
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 15px;
+        color: #fff;
+      }
+
+      details {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        padding: 14px 20px;
+        margin-bottom: 10px;
+      }
+      details summary {
+        cursor: pointer;
+        font-weight: 700;
+        color: var(--text);
+      }
+      details p { color: var(--muted); margin: 10px 0 2px; }
+
+      footer {
+        border-top: 1px solid var(--card-border);
+        margin-top: 80px;
+        padding: 36px 20px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      footer a { margin: 0 12px; }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <h1>GEARS <span class="xr">XR</span> Tutorial</h1>
+      <p class="tagline">Watch molecules move — in your browser, or in VR. No installation, no account, no experience needed.</p>
+      <a class="cta" href="https://gearsxr.space/">Open the viewer &rarr;</a>
+      <span class="cta-note">Free &middot; runs in any modern browser</span>
+    </header>
+
+    <main>
+      <section id="quick-start">
+        <span class="kicker">Quick start</span>
+        <h2>Get started in three clicks</h2>
+        <p class="lead">A demo molecule is already filled in for you, so your first visit takes about ten seconds.</p>
+        <figure>
+          <img src="tutorial/tutorial-quick-start.svg" alt="Three steps: open gearsxr.space, click Load URL, then click Play." width="1100" height="520" />
+        </figure>
+        <ol class="steps">
+          <li>Open <a href="https://gearsxr.space/">gearsxr.space</a> in your browser.</li>
+          <li>Click <b>Load URL</b> in the top-left panel. The demo molecule loads in a moment.</li>
+          <li>Click <b>Play</b> in the panel that appears at the bottom-left. That's it — the atoms start moving.</li>
+        </ol>
+      </section>
+
+      <section id="window">
+        <span class="kicker">Orientation</span>
+        <h2>The window at a glance</h2>
+        <p class="lead">Everything lives in four small panels around the edges — the molecule always has center stage.</p>
+        <figure>
+          <img src="tutorial/tutorial-window-layout.svg" alt="Map of the GEARS XR window: main panel top-left, Enter VR top-right, playback bottom-left, Room panel bottom-right." width="1200" height="760" />
+        </figure>
+        <p><b>Main panel</b> (top-left) opens files and changes the scenery. <b>Enter VR</b> (top-right) starts headset mode. <b>Playback</b> (bottom-left) plays the motion. <b>Room</b> (bottom-right) lets you watch together with others. Click <b>Hide</b> on any panel to tuck it away.</p>
+        <p>You can also look around freely: <b>drag</b> to orbit around the molecule, <b>scroll</b> to zoom, and <b>right-drag</b> to slide sideways.</p>
+      </section>
+
+      <section id="load">
+        <span class="kicker">Your own data</span>
+        <h2>Open your own molecule</h2>
+        <p class="lead">GEARS XR reads <code>.xyz</code> files — a common, plain-text format for molecular snapshots and simulations.</p>
+        <figure>
+          <img src="tutorial/tutorial-drag-drop.svg" alt="A .xyz file being dragged and dropped onto the GEARS XR window." width="1100" height="520" />
+        </figure>
+        <p>The easiest way: <b>drag the file from your computer and drop it anywhere</b> on the page. Or click <b>Choose File</b> in the main panel.</p>
+        <figure>
+          <img src="tutorial/tutorial-main-panel.svg" alt="The main panel with the file chooser, URL field, Load URL button, and background selector." width="1100" height="680" />
+        </figure>
+        <p>Got a file in the cloud? Paste a <b>Google Drive, Dropbox, OneDrive, or GitHub link</b> into the URL box and click <b>Load URL</b> — share links are understood automatically. Just make sure the file is shared as <i>"Anyone with the link."</i></p>
+        <div class="tip"><b>Private by design:</b> files you drop or choose stay on your computer. Nothing is uploaded anywhere.</div>
+      </section>
+
+      <section id="play">
+        <span class="kicker">Playback</span>
+        <h2>Play the movie</h2>
+        <p class="lead">If your file holds more than one snapshot, the playback panel turns it into a movie.</p>
+        <figure>
+          <img src="tutorial/tutorial-playback-panel.svg" alt="The playback panel: frame slider, Play button, step buttons, and FPS speed box." width="1100" height="560" />
+        </figure>
+        <ol class="steps">
+          <li><b>Drag the slider</b> to jump to any moment.</li>
+          <li><b>Play / Pause</b> runs the motion; <b>&lt;</b> and <b>&gt;</b> step one frame at a time.</li>
+          <li><b>FPS</b> sets the speed — higher numbers play faster.</li>
+        </ol>
+      </section>
+
+      <section id="scenery">
+        <span class="kicker">Ambience</span>
+        <h2>Change the scenery</h2>
+        <p class="lead">Pick a 360&deg; background from the <b>Background</b> menu in the main panel — it surrounds you completely in VR.</p>
+        <figure class="photo">
+          <img src="tutorial/tutorial-backgrounds.jpg" alt="The four bundled 360-degree backgrounds: Dark Cyberspace, Neon Lab, Orbital Deck, and Hologram Atrium." />
+        </figure>
+        <p>The default, <b>Dark Cyberspace</b>, keeps atom colors easiest to see. Choose <b>None</b> for a plain dark room.</p>
+      </section>
+
+      <section id="measure">
+        <span class="kicker">Analysis</span>
+        <h2>Measure atoms with clicks</h2>
+        <p class="lead">Curious how far apart two atoms are, or how sharp an angle is? Just click them.</p>
+        <figure>
+          <img src="tutorial/tutorial-measure.svg" alt="Clicking two atoms shows their distance; clicking three atoms shows the angle between them." width="1100" height="600" />
+        </figure>
+        <ol class="steps">
+          <li>Click <b>two atoms</b> &rarr; the distance between them appears.</li>
+          <li>Click a <b>third atom</b> &rarr; the angle at the middle atom appears.</li>
+          <li>Press <kbd>C</kbd> to clear and start a new measurement.</li>
+        </ol>
+        <div class="tip">This works in VR too — point a controller at an atom and pull the trigger.</div>
+      </section>
+
+      <section id="together">
+        <span class="kicker">Collaboration</span>
+        <h2>Watch together</h2>
+        <p class="lead">Explore the same molecule with a colleague, a classroom, or a friend — all you share is a six-letter code.</p>
+        <figure>
+          <img src="tutorial/tutorial-room-flow.svg" alt="You copy the room code and send it to a friend; they type it and click Join, and both browsers show the same molecule." width="1100" height="560" />
+        </figure>
+        <ol class="steps">
+          <li>Load a molecule with <b>Load URL</b> (a link everyone's browser can reach — not Choose File).</li>
+          <li>Click <b>Show</b> on the <b>Room</b> panel at the bottom-right, then <b>Join</b>.</li>
+          <li>Click <b>Copy Code</b> and send the short code to the others — chat, email, or out loud.</li>
+          <li>They type the same code, click <b>Join</b>, and see exactly what you see.</li>
+        </ol>
+        <figure>
+          <img src="tutorial/tutorial-room-panel.svg" alt="The Room panel: room code field, Copy Code, Join and Leave buttons, name, and Take Presenter." width="1100" height="800" />
+        </figure>
+        <p>The first person in the room is the <b>presenter</b> — they steer playback, the view, and the molecule. Anyone else can click <b>Take Presenter</b> to take the wheel.</p>
+      </section>
+
+      <section id="vr">
+        <span class="kicker">Virtual reality</span>
+        <h2>Step inside with VR</h2>
+        <p class="lead">With a VR headset (like a Meta Quest), the molecule floats in the room with you.</p>
+        <ol class="steps">
+          <li>Put on your headset and open <b>gearsxr.space</b> in its browser.</li>
+          <li>Load a molecule, then tap <b>Enter VR</b> at the top-right.</li>
+        </ol>
+        <figure>
+          <img src="tutorial/tutorial-vr-button.svg" alt="The Enter VR button at the top-right of the window, and clicking atoms for measurements." width="1100" height="560" />
+        </figure>
+        <figure>
+          <img src="tutorial/tutorial-vr-gestures.svg" alt="Hold the trigger with one hand to move and turn the molecule; hold both triggers and pull apart to resize it." width="1100" height="560" />
+        </figure>
+        <p><b>Grab</b> with one hand (hold the trigger) to move and turn the molecule. <b>Grab with both hands</b> and pull them apart or together to make it bigger or smaller — like stretching a photo on a phone.</p>
+        <div class="tip">Don't see the Enter VR button light up? Your current browser or device doesn't support VR — everything else on this page still works on a normal screen.</div>
+      </section>
+
+      <section id="troubleshooting">
+        <span class="kicker">Help</span>
+        <h2>If something looks wrong</h2>
+        <p class="lead">The most common hiccups, and their one-line fixes.</p>
+        <details>
+          <summary>"This URL returned a web page, not an XYZ file"</summary>
+          <p>Your cloud share link isn't public yet. In Drive/Dropbox/OneDrive, set the file to <b>"Anyone with the link"</b> and try again.</p>
+        </details>
+        <details>
+          <summary>"Expected a .xyz or .extxyz file"</summary>
+          <p>The link points at a file with a different name. Rename the file so it ends in <b>.xyz</b>, or use a direct link to the actual file.</p>
+        </details>
+        <details>
+          <summary>My friend joined the room but sees no molecule</summary>
+          <p>Load the molecule with <b>Load URL</b> instead of Choose File — local files stay on your computer, so others can't see them.</p>
+        </details>
+        <details>
+          <summary>The room stays on "Connecting"</summary>
+          <p>Check the <b>Room server</b> field — keep the default value unless someone gave you a different server address.</p>
+        </details>
+        <details>
+          <summary>I can't move the slider or change the speed in a room</summary>
+          <p>Only the presenter controls playback. Click <b>Take Presenter</b> first.</p>
+        </details>
+        <details>
+          <summary>The VR button says "VR not supported"</summary>
+          <p>Open the page in a VR headset's own browser (for example the Quest Browser). Regular desktop browsers usually can't enter VR.</p>
+        </details>
+      </section>
+    </main>
+
+    <footer>
+      <a href="https://gearsxr.space/">Open the viewer</a>
+      <a href="https://github.com/KenichiNomura/gearsxr">GitHub</a>
+      <p>GEARS XR — a browser-based molecular dynamics viewer with VR support.</p>
+    </footer>
+  </body>
+</html>
