@@ -125,6 +125,15 @@
       }
       .tip b { color: #fff; }
 
+      code {
+        background: #262f3d;
+        border-radius: 5px;
+        padding: 1px 6px;
+        font-size: 0.9em;
+        color: #cfe3ff;
+        overflow-wrap: anywhere;
+      }
+
       kbd {
         background: #262f3d;
         border: 1px solid #4a5a70;
@@ -233,6 +242,22 @@
           <img src="tutorial/tutorial-backgrounds.jpg" alt="The four bundled 360-degree backgrounds: Dark Cyberspace, Neon Lab, Orbital Deck, and Hologram Atrium." />
         </figure>
         <p>The default, <b>Dark Cyberspace</b>, keeps atom colors easiest to see. Choose <b>None</b> for a plain dark room.</p>
+      </section>
+
+      <section id="density">
+        <span class="kicker">Density &amp; orbitals</span>
+        <h2>See electron density and orbitals</h2>
+        <p class="lead">Open a <b>Gaussian Cube</b> file (<code>.cube</code>) — the format chemistry programs export — to see the cloud of electron density or a molecular orbital as a smooth 3D surface around the atoms.</p>
+        <figure>
+          <img src="tutorial/tutorial-isosurface.svg" alt="A Gaussian Cube loaded as a 3D isosurface: a blue positive lobe and a red negative lobe around an atom, with the Isosurface panel's isovalue, opacity, and show plus-or-minus lobes controls." width="1100" height="560" />
+        </figure>
+        <p>Load a <code>.cube</code> file the same way as any other — drag it onto the page, or paste its link and click <b>Load URL</b>. The atoms appear as usual, wrapped in a translucent surface. An <b>Isosurface</b> panel shows up at the bottom-left:</p>
+        <ol class="steps">
+          <li><b>Isovalue</b> — how much of the cloud to show. Slide it down to grow the surface, up to shrink it to the densest core.</li>
+          <li><b>Opacity</b> — how see-through the surface is, so you can still spot the atoms inside.</li>
+          <li><b>Show &plusmn; lobes</b> — for orbitals, adds the second surface. A <span style="color:#4b8bf5;font-weight:700">blue</span> surface is the positive part and a <span style="color:#ef4444;font-weight:700">red</span> one is the negative part.</li>
+        </ol>
+        <div class="tip"><b>Try it:</b> load <code>https://gearsxr.space/samples/orbital.cube</code> for a sample orbital. A cube is a single snapshot, so there's no play timeline — just the surface. It works in VR too.</div>
       </section>
 
       <section id="measure">
