@@ -7,7 +7,7 @@
 import { getFrameLayout } from "./xyzParser";
 import { resolveTrajectoryUrl, validateTrajectoryUrl } from "./shareLinks";
 
-export const MAX_TRAJECTORY_BYTES = 200 * 1024 * 1024;
+const MAX_TRAJECTORY_BYTES = 200 * 1024 * 1024;
 const SNIFF_BYTES = 8192;
 const MAX_SNIFF_ATOM_LINES = 20;
 const MAX_ATOM_COUNT = 10_000_000;

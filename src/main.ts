@@ -5,7 +5,7 @@ import { parseExtendedXYZ, type Trajectory } from "./xyzParser";
 import { parseCubeVolume, type CubeVolume } from "./cubeParser";
 import { symbolForAtomicNumber } from "./elements";
 import { MoleculeRenderer } from "./moleculeRenderer";
-import { IsosurfaceRenderer } from "./isosurfaceRenderer";
+import { IsosurfacePanel } from "./isosurfacePanel";
 import { VRObjectManipulator } from "./vrInteraction";
 import { MeasurementTool } from "./measurement";
 import { Playback } from "./playback";
@@ -122,15 +122,7 @@ grid.position.y = 0;
 scene.add(grid);
 
 let moleculeRenderer: MoleculeRenderer | null = null;
-let isosurfaceRenderer: IsosurfaceRenderer | null = null;
-let isoMaxAbs = 1;
-let isoSeedSigned = false;
-let isoSurfaceCount = 0;
-let isoColorCursor = 0;
 let cubeStatusSummary = "";
-const isoRowDebounce = new Map<number, number>();
-const MAX_ISO_SURFACES = 6;
-const ISO_COLORS = [0x3b82f6, 0xef4444, 0x22c55e, 0xf59e0b, 0xa855f7, 0x06b6d4];
 let playback: Playback | null = null;
 let currentTrajectoryUrl: string | null = null;
 let pendingTrajectoryUrl: string | null = null;
@@ -158,6 +150,19 @@ const measurementTool = new MeasurementTool((text) => {
 });
 scene.add(measurementTool.group);
 
+// Isosurface controls (shown only for cube files). Idle status restores the
+// cube's "Loaded …" summary once extraction finishes.
+const isoPanel = new IsosurfacePanel({
+  panelEl: isosurfaceEl,
+  listEl: isoListEl,
+  addBtn: isoAddBtn,
+  resetBtn: isoResetBtn,
+  parent: moleculeRoot,
+  onStatus: (text) => {
+    statusEl.textContent = text || cubeStatusSummary;
+  },
+});
+
 const raycaster = new THREE.Raycaster();
 const tempMatrix = new THREE.Matrix4();
 const pointerNdc = new THREE.Vector2();
@@ -184,23 +189,10 @@ const BACKGROUND_KEY = "gearsxr-background";
 const CONTROLS_COLLAPSED_KEY = "gearsxr-controls-collapsed";
 const ROOM_COLLAPSED_KEY = "gearsxr-room-collapsed";
 
-// Settings were stored under a "vr-md-viewer-*" prefix before the GEARS XR
-// rename; migrate them on first read.
-function readStoredValue(key: string): string | null {
-  const value = localStorage.getItem(key);
-  if (value !== null) return value;
-
-  const legacyValue = localStorage.getItem(key.replace("gearsxr", "vr-md-viewer"));
-  if (legacyValue !== null) {
-    localStorage.setItem(key, legacyValue);
-  }
-  return legacyValue;
-}
-
 const urlParams = new URLSearchParams(location.search);
 const backgroundFromUrl = urlParams.get("background");
 let currentBackgroundId = normalizeBackgroundId(
-  backgroundFromUrl ?? readStoredValue(BACKGROUND_KEY) ?? DEFAULT_BACKGROUND_ID,
+  backgroundFromUrl ?? localStorage.getItem(BACKGROUND_KEY) ?? DEFAULT_BACKGROUND_ID,
 );
 let appliedBackgroundId = "";
 let backgroundLoadVersion = 0;
@@ -229,14 +221,14 @@ function setRoomCollapsed(collapsed: boolean) {
   localStorage.setItem(ROOM_COLLAPSED_KEY, collapsed ? "1" : "0");
 }
 
-setControlsCollapsed(readStoredValue(CONTROLS_COLLAPSED_KEY) === "1");
+setControlsCollapsed(localStorage.getItem(CONTROLS_COLLAPSED_KEY) === "1");
 setRoomCollapsed(localStorage.getItem(ROOM_COLLAPSED_KEY) !== "0");
 
 const roomFromUrl = sanitizeRoomId(urlParams.get("room") ?? "");
 roomInput.value = roomFromUrl.length >= 3 ? roomFromUrl : makeRoomId();
-userNameInput.value = readStoredValue(USER_NAME_KEY) ?? `User ${Math.floor(1000 + Math.random() * 9000)}`;
+userNameInput.value = localStorage.getItem(USER_NAME_KEY) ?? `User ${Math.floor(1000 + Math.random() * 9000)}`;
 serverInput.value = normalizeWebSocketBase(
-  urlParams.get("server") ?? readStoredValue(SERVER_BASE_KEY) ?? defaultWebSocketBase()
+  urlParams.get("server") ?? localStorage.getItem(SERVER_BASE_KEY) ?? defaultWebSocketBase()
 );
 
 const collaboration = new CollaborationClient({
@@ -572,158 +564,21 @@ function atomsCentroid(volume: CubeVolume): [number, number, number] {
   return [centroid[0] / n, centroid[1] / n, centroid[2] / n];
 }
 
-function disposeIsosurface() {
-  if (!isosurfaceRenderer) return;
-  moleculeRoot.remove(isosurfaceRenderer.group);
-  isosurfaceRenderer.dispose();
-  isosurfaceRenderer = null;
+function mountMolecule(trajectory: Trajectory, sourceUrl: string | null) {
+  if (moleculeRenderer) {
+    moleculeRoot.remove(moleculeRenderer.group);
+    moleculeRenderer.dispose();
+  }
+  moleculeRenderer = new MoleculeRenderer(trajectory);
+  moleculeRoot.add(moleculeRenderer.group);
+  moleculeRoot.position.set(0, 0, 0);
+  moleculeRoot.quaternion.identity();
+  moleculeRoot.scale.set(1, 1, 1);
+  lastObservedTransform = objectTransformSignature(moleculeRoot);
+  measurementTool.clear();
+  currentTrajectoryUrl = sourceUrl;
 }
 
-function hexColor(value: number) {
-  return `#${(value & 0xffffff).toString(16).padStart(6, "0")}`;
-}
-
-function parseHexColor(value: string) {
-  return parseInt(value.replace(/^#/, ""), 16) || 0;
-}
-
-function clearIsoRowTimers() {
-  for (const handle of isoRowDebounce.values()) window.clearTimeout(handle);
-  isoRowDebounce.clear();
-}
-
-function resetIsosurfacePanel(maxAbs: number) {
-  isoMaxAbs = maxAbs;
-  isoSurfaceCount = 0;
-  isoColorCursor = 0;
-  clearIsoRowTimers();
-  isoListEl.replaceChildren();
-  isoAddBtn.disabled = false;
-  isosurfaceEl.style.display = "block";
-}
-
-function hideIsosurfacePanel() {
-  isosurfaceEl.style.display = "none";
-  isoListEl.replaceChildren();
-  clearIsoRowTimers();
-  isoSurfaceCount = 0;
-}
-
-interface SurfaceSpec {
-  isovalue: number;
-  color: number;
-  opacity: number;
-  visible: boolean;
-}
-
-// Seeds the default surfaces for the loaded cube: a positive lobe, plus a
-// negative lobe when the field has negative values.
-function seedDefaultSurfaces() {
-  addSurface({ isovalue: isoMaxAbs * 0.3, color: ISO_COLORS[0], opacity: 0.55, visible: true });
-  if (isoSeedSigned) addSurface({ isovalue: -isoMaxAbs * 0.3, color: ISO_COLORS[1], opacity: 0.55, visible: true });
-  isoColorCursor = isoSeedSigned ? 2 : 1;
-}
-
-function clearSurfaces() {
-  isosurfaceRenderer?.clearLayers();
-  isoListEl.replaceChildren();
-  clearIsoRowTimers();
-  isoSurfaceCount = 0;
-  isoColorCursor = 0;
-  isoAddBtn.disabled = false;
-}
-
-function addSurface(spec: SurfaceSpec) {
-  if (!isosurfaceRenderer || isoSurfaceCount >= MAX_ISO_SURFACES) return;
-  const id = isosurfaceRenderer.addLayer(spec);
-  isoSurfaceCount += 1;
-  isoListEl.appendChild(createSurfaceRow(id, spec));
-  isoAddBtn.disabled = isoSurfaceCount >= MAX_ISO_SURFACES;
-}
-
-function createSurfaceRow(id: number, spec: SurfaceSpec): HTMLElement {
-  const row = document.createElement("div");
-  row.className = "isoRow";
-
-  const color = document.createElement("input");
-  color.type = "color";
-  color.className = "isoColor";
-  color.value = hexColor(spec.color);
-  color.title = "Surface color";
-  color.addEventListener("input", () => isosurfaceRenderer?.setLayerColor(id, parseHexColor(color.value)));
-
-  const valueWrap = document.createElement("div");
-  valueWrap.className = "isoValueWrap";
-  const slider = document.createElement("input");
-  slider.type = "range";
-  slider.className = "isoValue";
-  slider.min = String(-isoMaxAbs);
-  slider.max = String(isoMaxAbs);
-  slider.step = String(isoMaxAbs / 400);
-  slider.value = String(spec.isovalue);
-  slider.title = "Isovalue";
-  // Editable number so exact isovalues can be typed in directly.
-  const number = document.createElement("input");
-  number.type = "number";
-  number.className = "isoNumber";
-  number.min = String(-isoMaxAbs);
-  number.max = String(isoMaxAbs);
-  number.step = String(isoMaxAbs / 400);
-  number.value = String(spec.isovalue);
-  number.title = "Isovalue (type a value)";
-
-  const applyIsovalue = (value: number) => {
-    if (!Number.isFinite(value)) return;
-    window.clearTimeout(isoRowDebounce.get(id));
-    isoRowDebounce.set(id, window.setTimeout(() => isosurfaceRenderer?.setLayerIsovalue(id, value), 60));
-  };
-  slider.addEventListener("input", () => {
-    const value = parseFloat(slider.value);
-    number.value = String(parseFloat(value.toPrecision(4)));
-    applyIsovalue(value);
-  });
-  number.addEventListener("input", () => {
-    const value = parseFloat(number.value);
-    if (!Number.isFinite(value)) return;
-    slider.value = String(value); // thumb tracks the typed value (clamped to range)
-    applyIsovalue(value);
-  });
-  valueWrap.append(slider, number);
-
-  const opacity = document.createElement("input");
-  opacity.type = "range";
-  opacity.className = "isoOpacity";
-  opacity.min = "0.05";
-  opacity.max = "1";
-  opacity.step = "0.05";
-  opacity.value = String(spec.opacity);
-  opacity.title = "Opacity";
-  opacity.addEventListener("input", () => isosurfaceRenderer?.setLayerOpacity(id, parseFloat(opacity.value)));
-
-  const visible = document.createElement("input");
-  visible.type = "checkbox";
-  visible.className = "isoVisibleBox";
-  visible.checked = spec.visible;
-  visible.title = "Visible";
-  visible.addEventListener("change", () => isosurfaceRenderer?.setLayerVisible(id, visible.checked));
-
-  const remove = document.createElement("button");
-  remove.type = "button";
-  remove.className = "isoRemove";
-  remove.textContent = "✕";
-  remove.title = "Remove surface";
-  remove.addEventListener("click", () => {
-    isosurfaceRenderer?.removeLayer(id);
-    window.clearTimeout(isoRowDebounce.get(id));
-    isoRowDebounce.delete(id);
-    row.remove();
-    isoSurfaceCount = Math.max(0, isoSurfaceCount - 1);
-    isoAddBtn.disabled = isoSurfaceCount >= MAX_ISO_SURFACES;
-  });
-
-  row.append(color, valueWrap, opacity, visible, remove);
-  return row;
-}
 
 async function loadCubeVolume(
   file: Blob,
@@ -739,39 +594,15 @@ async function loadCubeVolume(
   });
   if (loadVersion !== trajectoryLoadVersion) return;
 
-  if (moleculeRenderer) {
-    moleculeRoot.remove(moleculeRenderer.group);
-    moleculeRenderer.dispose();
-  }
-  disposeIsosurface();
-
-  moleculeRenderer = new MoleculeRenderer(cubeToTrajectory(volume));
-  moleculeRoot.add(moleculeRenderer.group);
-  moleculeRoot.position.set(0, 0, 0);
-  moleculeRoot.quaternion.identity();
-  moleculeRoot.scale.set(1, 1, 1);
-  lastObservedTransform = objectTransformSignature(moleculeRoot);
-  measurementTool.clear();
-  currentTrajectoryUrl = sourceUrl;
+  mountMolecule(cubeToTrajectory(volume), sourceUrl);
 
   // A cube is a single structure — no trajectory frames.
   playback = null;
   playbackEl.style.display = "none";
   document.body.classList.remove("has-playback");
 
-  const maxAbs = Math.max(Math.abs(volume.min), Math.abs(volume.max)) || 1;
-  isoSeedSigned = volume.min < -1e-6 * maxAbs;
   cubeStatusSummary = `Loaded ${volume.atoms.length} atoms, ${volume.grid.nx}x${volume.grid.ny}x${volume.grid.nz} grid`;
-
-  resetIsosurfacePanel(maxAbs);
-  isosurfaceRenderer = new IsosurfaceRenderer(volume, atomsCentroid(volume), {
-    maxAbs,
-    onStatus: (text) => {
-      if (loadVersion === trajectoryLoadVersion) statusEl.textContent = text || cubeStatusSummary;
-    },
-  });
-  moleculeRoot.add(isosurfaceRenderer.group);
-  seedDefaultSurfaces();
+  isoPanel.show(volume, atomsCentroid(volume));
 
   statusEl.textContent = cubeStatusSummary;
   if (broadcastState) markPresenterStateDirty(true);
@@ -813,8 +644,7 @@ async function loadTrajectoryFile(
   statusEl.textContent = "Parsing...";
   try {
     // Loading an XYZ trajectory clears any cube isosurface from a prior load.
-    disposeIsosurface();
-    hideIsosurfacePanel();
+    isoPanel.hide();
     const trajectory = await parseExtendedXYZ(file, (p) => {
       if (loadVersion !== trajectoryLoadVersion) return;
       const pct = ((p.bytesRead / p.totalBytes) * 100).toFixed(0);
@@ -822,18 +652,7 @@ async function loadTrajectoryFile(
     });
     if (loadVersion !== trajectoryLoadVersion) return;
 
-    if (moleculeRenderer) {
-      moleculeRoot.remove(moleculeRenderer.group);
-      moleculeRenderer.dispose();
-    }
-    moleculeRenderer = new MoleculeRenderer(trajectory);
-    moleculeRoot.add(moleculeRenderer.group);
-    moleculeRoot.position.set(0, 0, 0);
-    moleculeRoot.quaternion.identity();
-    moleculeRoot.scale.set(1, 1, 1);
-    lastObservedTransform = objectTransformSignature(moleculeRoot);
-    measurementTool.clear();
-    currentTrajectoryUrl = sourceUrl;
+    mountMolecule(trajectory, sourceUrl);
 
     playback = new Playback(trajectory.numFrames, (frame) => {
       moleculeRenderer?.setFrame(frame);
@@ -966,18 +785,6 @@ backgroundSelect.addEventListener("change", () => {
   void setSceneBackground(backgroundSelect.value, { broadcastState: true, persist: true });
 });
 
-isoAddBtn.addEventListener("click", () => {
-  const color = ISO_COLORS[isoColorCursor % ISO_COLORS.length];
-  isoColorCursor += 1;
-  addSurface({ isovalue: isoMaxAbs * 0.1, color, opacity: 0.55, visible: true });
-});
-
-isoResetBtn.addEventListener("click", () => {
-  if (!isosurfaceRenderer) return;
-  clearSurfaces();
-  seedDefaultSurfaces();
-});
-
 roomInput.addEventListener("input", updateRoomCodeUi);
 serverInput.addEventListener("input", updateRoomCodeUi);
 
@@ -1026,15 +833,15 @@ renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
   playback?.step(delta);
   manipulator?.update();
-  const signature = objectTransformSignature(moleculeRoot);
-  if (signature !== lastObservedTransform) {
-    lastObservedTransform = signature;
+  const transformSig = objectTransformSignature(moleculeRoot);
+  if (transformSig !== lastObservedTransform) {
+    lastObservedTransform = transformSig;
     markPresenterStateDirty();
   }
   if (!renderer.xr.isPresenting) {
-    const signature = currentViewSignature();
-    if (signature !== lastObservedView) {
-      lastObservedView = signature;
+    const viewSig = currentViewSignature();
+    if (viewSig !== lastObservedView) {
+      lastObservedView = viewSig;
       markPresenterStateDirty();
     }
   }

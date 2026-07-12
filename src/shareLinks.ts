@@ -15,7 +15,7 @@ function base64UrlEncode(value: string) {
   return btoa(value).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-export function isPrivateHostname(hostname: string) {
+function isPrivateHostname(hostname: string) {
   const host = hostname.toLowerCase();
   return (
     host === "localhost" ||

@@ -146,13 +146,7 @@ export class IsosurfaceRenderer {
     this.worker?.terminate();
     this.worker = null;
     this.fallbackValues = null;
-    for (const layer of this.layers.values()) {
-      this.group.remove(layer.mesh);
-      layer.mesh.geometry.dispose();
-      layer.material.dispose();
-    }
-    this.layers.clear();
-    this.tokenToLayer.clear();
+    this.clearLayers();
   }
 
   private renderOrderFor(isovalue: number) {
