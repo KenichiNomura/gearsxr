@@ -76,20 +76,36 @@
       }
       #isosurface {
         position: fixed; left: 16px; bottom: 16px; z-index: 12;
-        width: min(360px, calc(100vw - 32px)); box-sizing: border-box;
+        width: min(380px, calc(100vw - 32px)); box-sizing: border-box;
+        max-height: calc(100vh - 32px); overflow-y: auto;
         font-family: system-ui, sans-serif; color: #eee;
         background: rgba(20,20,20,0.85); padding: 10px 12px;
         border-radius: 8px;
       }
       #isosurface h2 { font-size: 14px; margin: 0; font-weight: 600; }
-      #isosurface label { display: block; font-size: 12px; margin: 8px 0 2px; }
-      #isosurface input[type="range"] { width: 100%; }
-      .isoRow { display: flex; gap: 16px; align-items: center; margin-top: 8px; }
-      .isoRow label { display: inline-flex; align-items: center; gap: 5px; margin: 0; }
-      .isoLegend { display: flex; gap: 14px; align-items: center; font-size: 11px; opacity: 0.8; margin-top: 8px; }
-      .isoLegend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: middle; }
-      .isoLegend .pos { background: #3b82f6; }
-      .isoLegend .neg { background: #ef4444; }
+      #isoAddBtn {
+        flex: 0 0 auto; margin: 0; padding: 2px 8px; font-size: 12px; cursor: pointer;
+        color: #eee; background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.22); border-radius: 4px;
+      }
+      #isoAddBtn:disabled { opacity: 0.4; cursor: default; }
+      #isoList { margin-top: 6px; }
+      #isoHint { font-size: 11px; opacity: 0.7; margin-top: 8px; }
+      .isoRow { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+      .isoRow .isoColor {
+        flex: 0 0 auto; width: 24px; height: 24px; padding: 0; cursor: pointer;
+        background: none; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px;
+      }
+      .isoRow .isoValueWrap { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+      .isoRow .isoValue { width: 100%; }
+      .isoRow .isoReadout { font-size: 10px; opacity: 0.75; font-variant-numeric: tabular-nums; }
+      .isoRow .isoOpacity { flex: 0 0 68px; width: 68px; }
+      .isoRow .isoVisibleBox { flex: 0 0 auto; cursor: pointer; }
+      .isoRow .isoRemove {
+        flex: 0 0 auto; margin: 0; padding: 0 6px; font-size: 12px; cursor: pointer; line-height: 20px;
+        color: #eee; background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.22); border-radius: 4px;
+      }
       #vrEntry {
         position: fixed; top: 12px; right: 16px; z-index: 20;
         margin: 0; pointer-events: auto;
@@ -165,19 +181,12 @@
       </div>
     </div>
     <div id="isosurface" style="display:none">
-      <h2>Isosurface</h2>
-      <label>Isovalue: <span id="isoValueLabel">0</span></label>
-      <input id="isoValue" type="range" min="0" max="1" step="0.001" value="0.1" />
-      <label for="isoOpacity">Opacity</label>
-      <input id="isoOpacity" type="range" min="0.1" max="1" step="0.05" value="0.55" />
-      <div class="isoRow">
-        <label><input id="isoSigned" type="checkbox" /> Show &plusmn; lobes</label>
-        <label><input id="isoVisible" type="checkbox" checked /> Visible</label>
+      <div class="panelHeader">
+        <h2>Isosurface</h2>
+        <button id="isoAddBtn" type="button">+ Add surface</button>
       </div>
-      <div class="isoLegend">
-        <span><span class="dot pos"></span>positive</span>
-        <span><span class="dot neg"></span>negative</span>
-      </div>
+      <div id="isoList"></div>
+      <div id="isoHint">Each row: color, isovalue, opacity, visibility. Use a negative isovalue for the opposite orbital lobe.</div>
     </div>
     <div id="vrEntry"></div>
     <script type="module" src="/src/main.ts"></script>

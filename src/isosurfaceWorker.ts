@@ -1,6 +1,8 @@
 // Runs marching-cubes extraction off the main thread. The grid is sent once via
 // an "init" message (the values buffer is transferred in), then each "extract"
-// message re-runs extraction for new isolevels from the cached grid.
+// message re-runs extraction for one isolevel from the cached grid. The token
+// is echoed back so the renderer can match results to layers and drop stale
+// ones.
 
 import { marchingCubes } from "./marchingCubes";
 import type { CubeGrid } from "./cubeParser";
@@ -13,9 +15,8 @@ interface InitMessage {
 
 interface ExtractMessage {
   type: "extract";
-  id: number;
-  positiveLevel: number | null;
-  negativeLevel: number | null;
+  token: number;
+  level: number;
 }
 
 type IncomingMessage = InitMessage | ExtractMessage;
@@ -32,25 +33,10 @@ self.onmessage = (event: MessageEvent<IncomingMessage>) => {
 
   if (message.type === "extract") {
     if (!cached) return;
-    const transfers: ArrayBuffer[] = [];
-    const result: {
-      type: "result";
-      id: number;
-      positive?: { positions: Float32Array; normals: Float32Array };
-      negative?: { positions: Float32Array; normals: Float32Array };
-    } = { type: "result", id: message.id };
-
-    if (message.positiveLevel !== null) {
-      const geom = marchingCubes({ values: cached.values, grid: cached.grid, isolevel: message.positiveLevel });
-      result.positive = geom;
-      transfers.push(geom.positions.buffer as ArrayBuffer, geom.normals.buffer as ArrayBuffer);
-    }
-    if (message.negativeLevel !== null) {
-      const geom = marchingCubes({ values: cached.values, grid: cached.grid, isolevel: message.negativeLevel });
-      result.negative = geom;
-      transfers.push(geom.positions.buffer as ArrayBuffer, geom.normals.buffer as ArrayBuffer);
-    }
-
-    (self as unknown as Worker).postMessage(result, transfers);
+    const geometry = marchingCubes({ values: cached.values, grid: cached.grid, isolevel: message.level });
+    (self as unknown as Worker).postMessage(
+      { type: "result", token: message.token, geometry },
+      [geometry.positions.buffer as ArrayBuffer, geometry.normals.buffer as ArrayBuffer],
+    );
   }
 };

@@ -42,11 +42,8 @@ const loadUrlBtn = $<HTMLButtonElement>("loadUrlBtn");
 const backgroundSelect = $<HTMLSelectElement>("backgroundSelect");
 const vrEntryEl = $("vrEntry");
 const isosurfaceEl = $("isosurface");
-const isoValueSlider = $<HTMLInputElement>("isoValue");
-const isoValueLabel = $("isoValueLabel");
-const isoOpacitySlider = $<HTMLInputElement>("isoOpacity");
-const isoSignedToggle = $<HTMLInputElement>("isoSigned");
-const isoVisibleToggle = $<HTMLInputElement>("isoVisible");
+const isoListEl = $("isoList");
+const isoAddBtn = $<HTMLButtonElement>("isoAddBtn");
 const playbackEl = $("playback");
 const frameSlider = $<HTMLInputElement>("frameSlider");
 const frameLabel = $("frameLabel");
@@ -119,7 +116,13 @@ scene.add(grid);
 
 let moleculeRenderer: MoleculeRenderer | null = null;
 let isosurfaceRenderer: IsosurfaceRenderer | null = null;
-let isoValueDebounce = 0;
+let isoMaxAbs = 1;
+let isoSurfaceCount = 0;
+let isoColorCursor = 0;
+let cubeStatusSummary = "";
+const isoRowDebounce = new Map<number, number>();
+const MAX_ISO_SURFACES = 6;
+const ISO_COLORS = [0x3b82f6, 0xef4444, 0x22c55e, 0xf59e0b, 0xa855f7, 0x06b6d4];
 let playback: Playback | null = null;
 let currentTrajectoryUrl: string | null = null;
 let pendingTrajectoryUrl: string | null = null;
@@ -568,20 +571,117 @@ function disposeIsosurface() {
   isosurfaceRenderer = null;
 }
 
-function showIsosurfacePanel(volume: CubeVolume): { isovalue: number; signed: boolean } {
-  const maxAbs = Math.max(Math.abs(volume.min), Math.abs(volume.max)) || 1;
-  const signed = volume.min < -1e-6 * maxAbs;
-  const isovalue = maxAbs * 0.3;
+function hexColor(value: number) {
+  return `#${(value & 0xffffff).toString(16).padStart(6, "0")}`;
+}
 
-  isoValueSlider.min = String(maxAbs * 0.01);
-  isoValueSlider.max = String(maxAbs * 0.95);
-  isoValueSlider.step = String(maxAbs / 400);
-  isoValueSlider.value = String(isovalue);
-  isoValueLabel.textContent = isovalue.toPrecision(3);
-  isoSignedToggle.checked = signed;
-  isoVisibleToggle.checked = true;
+function parseHexColor(value: string) {
+  return parseInt(value.replace(/^#/, ""), 16) || 0;
+}
+
+function clearIsoRowTimers() {
+  for (const handle of isoRowDebounce.values()) window.clearTimeout(handle);
+  isoRowDebounce.clear();
+}
+
+function resetIsosurfacePanel(maxAbs: number) {
+  isoMaxAbs = maxAbs;
+  isoSurfaceCount = 0;
+  isoColorCursor = 0;
+  clearIsoRowTimers();
+  isoListEl.replaceChildren();
+  isoAddBtn.disabled = false;
   isosurfaceEl.style.display = "block";
-  return { isovalue, signed };
+}
+
+function hideIsosurfacePanel() {
+  isosurfaceEl.style.display = "none";
+  isoListEl.replaceChildren();
+  clearIsoRowTimers();
+  isoSurfaceCount = 0;
+}
+
+interface SurfaceSpec {
+  isovalue: number;
+  color: number;
+  opacity: number;
+  visible: boolean;
+}
+
+function addSurface(spec: SurfaceSpec) {
+  if (!isosurfaceRenderer || isoSurfaceCount >= MAX_ISO_SURFACES) return;
+  const id = isosurfaceRenderer.addLayer(spec);
+  isoSurfaceCount += 1;
+  isoListEl.appendChild(createSurfaceRow(id, spec));
+  isoAddBtn.disabled = isoSurfaceCount >= MAX_ISO_SURFACES;
+}
+
+function createSurfaceRow(id: number, spec: SurfaceSpec): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "isoRow";
+
+  const color = document.createElement("input");
+  color.type = "color";
+  color.className = "isoColor";
+  color.value = hexColor(spec.color);
+  color.title = "Surface color";
+  color.addEventListener("input", () => isosurfaceRenderer?.setLayerColor(id, parseHexColor(color.value)));
+
+  const valueWrap = document.createElement("div");
+  valueWrap.className = "isoValueWrap";
+  const slider = document.createElement("input");
+  slider.type = "range";
+  slider.className = "isoValue";
+  slider.min = String(-isoMaxAbs);
+  slider.max = String(isoMaxAbs);
+  slider.step = String(isoMaxAbs / 400);
+  slider.value = String(spec.isovalue);
+  slider.title = "Isovalue";
+  const readout = document.createElement("span");
+  readout.className = "isoReadout";
+  readout.textContent = spec.isovalue.toPrecision(3);
+  slider.addEventListener("input", () => {
+    const value = parseFloat(slider.value);
+    readout.textContent = value.toPrecision(3);
+    // Debounce so dragging doesn't flood the worker with extractions.
+    window.clearTimeout(isoRowDebounce.get(id));
+    isoRowDebounce.set(id, window.setTimeout(() => isosurfaceRenderer?.setLayerIsovalue(id, value), 60));
+  });
+  valueWrap.append(slider, readout);
+
+  const opacity = document.createElement("input");
+  opacity.type = "range";
+  opacity.className = "isoOpacity";
+  opacity.min = "0.05";
+  opacity.max = "1";
+  opacity.step = "0.05";
+  opacity.value = String(spec.opacity);
+  opacity.title = "Opacity";
+  opacity.addEventListener("input", () => isosurfaceRenderer?.setLayerOpacity(id, parseFloat(opacity.value)));
+
+  const visible = document.createElement("input");
+  visible.type = "checkbox";
+  visible.className = "isoVisibleBox";
+  visible.checked = spec.visible;
+  visible.title = "Visible";
+  visible.addEventListener("change", () => isosurfaceRenderer?.setLayerVisible(id, visible.checked));
+
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "isoRemove";
+  remove.textContent = "✕";
+  remove.title = "Remove surface";
+  remove.addEventListener("click", () => {
+    isosurfaceRenderer?.removeLayer(id);
+    window.clearTimeout(isoRowDebounce.get(id));
+    isoRowDebounce.delete(id);
+    row.remove();
+    isoSurfaceCount = Math.max(0, isoSurfaceCount - 1);
+    isoAddBtn.disabled = isoSurfaceCount >= MAX_ISO_SURFACES;
+  });
+
+  row.append(color, valueWrap, opacity, visible, remove);
+  return row;
 }
 
 async function loadCubeVolume(
@@ -618,17 +718,26 @@ async function loadCubeVolume(
   playbackEl.style.display = "none";
   document.body.classList.remove("has-playback");
 
-  const { isovalue, signed } = showIsosurfacePanel(volume);
+  const maxAbs = Math.max(Math.abs(volume.min), Math.abs(volume.max)) || 1;
+  const signed = volume.min < -1e-6 * maxAbs;
+  cubeStatusSummary = `Loaded ${volume.atoms.length} atoms, ${volume.grid.nx}x${volume.grid.ny}x${volume.grid.nz} grid`;
+
+  resetIsosurfacePanel(maxAbs);
   isosurfaceRenderer = new IsosurfaceRenderer(volume, atomsCentroid(volume), {
-    isovalue,
-    signed,
+    maxAbs,
     onStatus: (text) => {
-      if (loadVersion === trajectoryLoadVersion && text) statusEl.textContent = text;
+      if (loadVersion === trajectoryLoadVersion) statusEl.textContent = text || cubeStatusSummary;
     },
   });
   moleculeRoot.add(isosurfaceRenderer.group);
 
-  statusEl.textContent = `Loaded ${volume.atoms.length} atoms, ${volume.grid.nx}x${volume.grid.ny}x${volume.grid.nz} grid`;
+  // Seed surfaces to match the previous default look: a positive lobe, plus a
+  // negative lobe when the field has negative values.
+  addSurface({ isovalue: maxAbs * 0.3, color: ISO_COLORS[0], opacity: 0.55, visible: true });
+  if (signed) addSurface({ isovalue: -maxAbs * 0.3, color: ISO_COLORS[1], opacity: 0.55, visible: true });
+  isoColorCursor = signed ? 2 : 1;
+
+  statusEl.textContent = cubeStatusSummary;
   if (broadcastState) markPresenterStateDirty(true);
 }
 
@@ -669,7 +778,7 @@ async function loadTrajectoryFile(
   try {
     // Loading an XYZ trajectory clears any cube isosurface from a prior load.
     disposeIsosurface();
-    isosurfaceEl.style.display = "none";
+    hideIsosurfacePanel();
     const trajectory = await parseExtendedXYZ(file, (p) => {
       if (loadVersion !== trajectoryLoadVersion) return;
       const pct = ((p.bytesRead / p.totalBytes) * 100).toFixed(0);
@@ -811,24 +920,10 @@ backgroundSelect.addEventListener("change", () => {
   void setSceneBackground(backgroundSelect.value, { broadcastState: true, persist: true });
 });
 
-isoValueSlider.addEventListener("input", () => {
-  const value = parseFloat(isoValueSlider.value);
-  isoValueLabel.textContent = value.toPrecision(3);
-  // Debounce so dragging the slider doesn't flood the worker with extractions.
-  window.clearTimeout(isoValueDebounce);
-  isoValueDebounce = window.setTimeout(() => isosurfaceRenderer?.setIsovalue(value), 60);
-});
-
-isoOpacitySlider.addEventListener("input", () => {
-  isosurfaceRenderer?.setOpacity(parseFloat(isoOpacitySlider.value));
-});
-
-isoSignedToggle.addEventListener("change", () => {
-  isosurfaceRenderer?.setSignedMode(isoSignedToggle.checked);
-});
-
-isoVisibleToggle.addEventListener("change", () => {
-  isosurfaceRenderer?.setVisible(isoVisibleToggle.checked);
+isoAddBtn.addEventListener("click", () => {
+  const color = ISO_COLORS[isoColorCursor % ISO_COLORS.length];
+  isoColorCursor += 1;
+  addSurface({ isovalue: isoMaxAbs * 0.1, color, opacity: 0.55, visible: true });
 });
 
 roomInput.addEventListener("input", updateRoomCodeUi);
