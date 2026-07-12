@@ -250,16 +250,16 @@
         <h2>See electron density and orbitals</h2>
         <p class="lead">Open a <b>Gaussian Cube</b> file (<code>.cube</code>) — the format chemistry programs export — to see the cloud of electron density or a molecular orbital as a smooth 3D surface around the atoms.</p>
         <figure>
-          <img src="tutorial/tutorial-isosurface.svg" alt="A Gaussian Cube loaded as nested 3D isosurfaces around an atom, with the Isosurface panel showing a list of surfaces — each with a color swatch, isovalue slider, opacity slider, visibility checkbox, and remove button, plus an Add surface button." width="1100" height="560" />
+          <img src="tutorial/tutorial-isosurface.svg" alt="A Gaussian Cube loaded as nested 3D isosurfaces around an atom, with the Isosurface panel showing a list of surfaces — each with a color swatch, an isovalue you can drag or type, an opacity slider, a visibility checkbox, and a remove button, plus Add surface and Reset buttons." width="1100" height="560" />
         </figure>
         <p>Load a <code>.cube</code> file the same way as any other — drag it onto the page, or paste its link and click <b>Load URL</b>. The atoms appear as usual, wrapped in a translucent surface. An <b>Isosurface</b> panel shows up at the bottom-left. It's a <b>list of surfaces</b> — start with the ones shown and click <b>+ Add surface</b> to stack more (up to six). Each row is one surface you control on its own:</p>
         <ol class="steps">
           <li><b>Color</b> — the swatch on the left recolors that surface; click it to pick any color.</li>
-          <li><b>Isovalue</b> — how much of the cloud that surface shows. Slide toward zero to grow it, outward to shrink it to the densest core. A <b>negative</b> isovalue draws the opposite orbital lobe.</li>
+          <li><b>Isovalue</b> — how much of the cloud that surface shows. <b>Drag the slider, or type an exact value in the box below it</b> — handy for a precise level like <code>0.002</code>. Toward zero grows the surface; outward shrinks it to the densest core. A <b>negative</b> value draws the opposite orbital lobe.</li>
           <li><b>Opacity</b> — how see-through it is, so inner surfaces and the atoms still show through.</li>
           <li><b>Checkbox</b> hides a surface; <b>&#215;</b> removes it.</li>
         </ol>
-        <p>Stacking a few — say a solid inner core and a faint outer shell at a smaller isovalue — shows how the density falls off with distance. For an orbital, keep a <span style="color:#4b8bf5;font-weight:700">blue</span> positive surface and a <span style="color:#ef4444;font-weight:700">red</span> one at the negative isovalue.</p>
+        <p>Stacking a few — say a solid inner core and a faint outer shell at a smaller isovalue — shows how the density falls off with distance. For an orbital, keep a <span style="color:#4b8bf5;font-weight:700">blue</span> positive surface and a <span style="color:#ef4444;font-weight:700">red</span> one at the negative isovalue. The <b>Reset</b> button restores the starting surfaces if you want to begin again.</p>
         <div class="tip"><b>Try it:</b> load <code>https://gearsxr.space/samples/orbital.cube</code> for a sample orbital. A cube is a single snapshot, so there's no play timeline — just the surfaces. It works in VR too.</div>
       </section>
 
@@ -321,7 +321,7 @@
         <p class="lead">The most common hiccups, and their one-line fixes.</p>
         <details>
           <summary>"This URL returned a web page, not an XYZ file"</summary>
-          <p>Your cloud share link isn't public yet. In Drive/Dropbox/OneDrive, set the file to <b>"Anyone with the link"</b> and try again.</p>
+          <p>Your cloud share link isn't public yet. In Google Drive/Dropbox/OneDrive, set the file to <b>"Anyone with the link"</b> and try again.</p>
         </details>
         <details>
           <summary>"Expected a .xyz or .extxyz file"</summary>
