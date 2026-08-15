@@ -140,8 +140,41 @@ let lastPresenterSyncAt = 0;
 let lastObservedTransform = "";
 let lastObservedView = "";
 let remoteApplyVersion = 0;
+// Follower jitter buffer: instead of free-running its own playback and being
+// snapped to each incoming frame (which yanks the motion), the follower buffers
+// the presenter's samples and plays them out on a delayed, timestamp-scheduled
+// clock so frames advance evenly and forward, immune to packet-arrival jitter.
+interface FollowSample {
+  srcTime: number; // presenter clock (state.updatedAt)
+  frameIndex: number;
+  transform: TransformState;
+  view: ViewState;
+}
+let followBuffer: FollowSample[] = [];
+let followClockOffset: number | null = null; // localNow - presenter srcTime, eased for drift
+let followShownFrame = -1;
 const MIN_FPS = 1;
 const MAX_FPS = 60;
+// Presenter broadcasts at most every 50 ms (~20/s), under the room server's
+// 24/s message budget, so followers get fresh state with low latency.
+const PRESENTER_SYNC_INTERVAL_MS = 50;
+// Play the buffer out this far behind the presenter's clock to absorb network
+// jitter (~2-3 messages). Lower = snappier/riskier, higher = smoother on bad links.
+const FOLLOW_BUFFER_DELAY_MS = 120;
+// Drop buffered samples older than this (keeps the queue tiny).
+const FOLLOW_BUFFER_RETENTION_MS = 1000;
+// Camera/transform smoothing time constant (s); these are cheap group-level
+// eases (10 floats), not per-atom work.
+const FOLLOW_SMOOTHING_TAU = 0.06;
+// Jumps larger than these snap instead of easing (new load, big reframe).
+const FOLLOW_SNAP_DISTANCE = 3;
+const FOLLOW_SNAP_CAMERA_DISTANCE = 6;
+// Reused scratch objects so per-frame easing doesn't allocate.
+const _vt = new THREE.Vector3();
+const _qt = new THREE.Quaternion();
+const _st = new THREE.Vector3();
+const _cp = new THREE.Vector3();
+const _ot = new THREE.Vector3();
 
 // Persistent group that VR grab/scale acts on; molecule contents are swapped
 // in/out of it per file load so the manipulator/controllers only need to be
@@ -387,6 +420,87 @@ function applyViewState(view: ViewState) {
   lastObservedView = currentViewSignature();
 }
 
+// Buffers one presenter sample. The first sample snaps directly (instant
+// initial sync + seeds the clock offset); later ones are scheduled by the
+// render loop. Called only while following.
+function pushFollowSample(state: PresenterState) {
+  const sample: FollowSample = {
+    srcTime: state.updatedAt,
+    frameIndex: state.frameIndex,
+    transform: state.transform,
+    view: state.view ?? getViewState(),
+  };
+  const now = performance.now();
+  if (followClockOffset === null) {
+    followClockOffset = now - state.updatedAt;
+    followBuffer = [sample];
+    followShownFrame = sample.frameIndex;
+    applyMoleculeTransform(sample.transform);
+    applyViewState(sample.view);
+    playback?.setFrame(sample.frameIndex);
+    return;
+  }
+  // Track clock drift slowly so play-out timing follows the presenter's clock.
+  followClockOffset += (now - state.updatedAt - followClockOffset) * 0.02;
+  followBuffer.push(sample);
+  const cutoff = state.updatedAt - FOLLOW_BUFFER_RETENTION_MS;
+  while (followBuffer.length > 2 && followBuffer[0].srcTime < cutoff) followBuffer.shift();
+}
+
+function resetFollowBuffer() {
+  if (followClockOffset === null && followBuffer.length === 0) return;
+  followBuffer = [];
+  followClockOffset = null;
+  followShownFrame = -1;
+}
+
+// Plays the buffer out ~FOLLOW_BUFFER_DELAY_MS behind the presenter's clock:
+// shows the newest sample already due (even, forward-only frame cadence) and
+// eases the molecule transform + camera toward it (cheap, group-level).
+function updateFollowFromBuffer(delta: number) {
+  if (followClockOffset === null || followBuffer.length === 0) return;
+  const playoutTime = performance.now() - followClockOffset - FOLLOW_BUFFER_DELAY_MS;
+
+  let target: FollowSample | null = null;
+  for (let i = followBuffer.length - 1; i >= 0; i--) {
+    if (followBuffer[i].srcTime <= playoutTime) {
+      target = followBuffer[i];
+      break;
+    }
+  }
+  if (!target) return; // nothing due yet — hold the current frame/pose
+
+  if (target.frameIndex !== followShownFrame) {
+    playback?.setFrame(target.frameIndex);
+    followShownFrame = target.frameIndex;
+  }
+
+  const alpha = 1 - Math.exp(-delta / FOLLOW_SMOOTHING_TAU);
+  _vt.fromArray(target.transform.position);
+  _qt.fromArray(target.transform.quaternion);
+  _st.fromArray(target.transform.scale);
+  if (moleculeRoot.position.distanceTo(_vt) > FOLLOW_SNAP_DISTANCE) {
+    moleculeRoot.position.copy(_vt);
+    moleculeRoot.quaternion.copy(_qt);
+    moleculeRoot.scale.copy(_st);
+  } else {
+    moleculeRoot.position.lerp(_vt, alpha);
+    moleculeRoot.quaternion.slerp(_qt, alpha);
+    moleculeRoot.scale.lerp(_st, alpha);
+  }
+  if (!renderer.xr.isPresenting) {
+    _cp.fromArray(target.view.cameraPosition);
+    _ot.fromArray(target.view.orbitTarget);
+    if (camera.position.distanceTo(_cp) > FOLLOW_SNAP_CAMERA_DISTANCE) {
+      camera.position.copy(_cp);
+      orbitControls.target.copy(_ot);
+    } else {
+      camera.position.lerp(_cp, alpha);
+      orbitControls.target.lerp(_ot, alpha);
+    }
+  }
+}
+
 function getPresenterState(): PresenterState {
   return {
     trajectoryUrl: currentTrajectoryUrl,
@@ -411,7 +525,7 @@ function markPresenterStateDirty(force = false) {
 function flushPresenterState(force = false) {
   if (!pendingPresenterSync || !collaboration.isPresenter()) return;
   const now = performance.now();
-  if (!force && now - lastPresenterSyncAt < 100) return;
+  if (!force && now - lastPresenterSyncAt < PRESENTER_SYNC_INTERVAL_MS) return;
   collaboration.sendPresenterState(getPresenterState());
   pendingPresenterSync = false;
   lastPresenterSyncAt = now;
@@ -474,17 +588,16 @@ async function applyRemotePresenterState(state: PresenterState) {
     // follower's own seeded surfaces.
     if (Array.isArray(state.surfaces)) isoPanel.applySurfaces(state.surfaces);
 
-    applyMoleculeTransform(state.transform);
-    if (state.view) {
-      applyViewState(state.view);
-    }
+    // Frame + transform + view are driven by the follower jitter buffer (played
+    // out on a delayed clock in the render loop); buffer this sample rather than
+    // applying it directly, so motion stays even and jitter-free.
     if (playback) {
       playback.fps = state.fps;
       fpsInput.value = String(state.fps);
-      playback.playing = state.playing;
+      playback.playing = state.playing; // kept for the Play/Pause label only
       syncPlayButton();
-      playback.setFrame(state.frameIndex);
     }
+    pushFollowSample(state);
   } finally {
     applyingRemoteState = false;
     updateCollaborationUi();
@@ -883,8 +996,16 @@ const clock = new THREE.Clock();
 
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
-  playback?.step(delta);
+  const following = collaboration.isConnected() && !collaboration.isPresenter();
+  // Followers don't advance playback locally — the jitter buffer drives their
+  // frame. Presenters/solo users play normally.
+  if (!following) playback?.step(delta);
   manipulator?.update();
+  if (following) {
+    updateFollowFromBuffer(delta);
+  } else {
+    resetFollowBuffer();
+  }
   const transformSig = objectTransformSignature(moleculeRoot);
   if (transformSig !== lastObservedTransform) {
     lastObservedTransform = transformSig;
