@@ -4,6 +4,10 @@
 //   line 2: comment/properties (may contain Lattice=".." Properties=species:S:1:pos:R:3 ..." etc.)
 //   next natoms lines: "<symbol> x y z [extra columns]"
 
+// Upper bound on atoms per frame, so a malformed or hostile file can't trigger
+// a runaway Float32Array allocation. Comfortably above any real MD system.
+const MAX_ATOMS_PER_FRAME = 2_000_000;
+
 export interface Trajectory {
   numFrames: number;
   numAtoms: number;
@@ -215,6 +219,10 @@ export async function parseExtendedXYZ(
     const frameAtomCount = parseInt(trimmed, 10);
     if (Number.isNaN(frameAtomCount)) {
       throw new Error(`Expected atom count, got: "${countLine}"`);
+    }
+    // Guard against a malformed/hostile file forcing a huge allocation.
+    if (frameAtomCount < 1 || frameAtomCount > MAX_ATOMS_PER_FRAME) {
+      throw new Error(`Atom count ${frameAtomCount} is out of the supported range (1..${MAX_ATOMS_PER_FRAME}).`);
     }
     if (numAtoms === -1) {
       numAtoms = frameAtomCount;

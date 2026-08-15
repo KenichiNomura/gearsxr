@@ -2,12 +2,15 @@ import { DurableObject } from "cloudflare:workers";
 
 export interface Env {
   ROOMS: DurableObjectNamespace<RoomDurableObject>;
+  DROPS?: R2Bucket;
   ALLOWED_ORIGINS?: string;
   MAX_ROOM_USERS?: string;
   MAX_MESSAGE_BYTES?: string;
   MAX_MESSAGES_PER_10_SECONDS?: string;
   MAX_PROXY_BYTES?: string;
+  MAX_SHARE_STORAGE_BYTES?: string;
   PROXY_ALLOWED_HOSTS?: string;
+  SHARE_SIGNING_KEY?: string;
 }
 
 type Vec3Tuple = [number, number, number];
@@ -55,6 +58,7 @@ type ClientMessage =
   | { type: "join"; user?: Partial<RoomUser> }
   | { type: "presenter-state"; state?: Partial<PresenterState> }
   | { type: "take-presenter" }
+  | { type: "request-upload"; size?: number; name?: string }
   | { type: "leave" };
 
 const DEFAULT_ALLOWED_ORIGINS = new Set([
@@ -72,6 +76,10 @@ const DEFAULT_MAX_MESSAGE_BYTES = 8192;
 const DEFAULT_MAX_MESSAGES_PER_10_SECONDS = 240;
 const RATE_WINDOW_MS = 10_000;
 const DEFAULT_MAX_PROXY_BYTES = 52_428_800; // 50 MB
+const DEFAULT_MAX_SHARE_STORAGE_BYTES = 4_831_838_208; // 4.5 GB
+const SHARE_TTL_MS = 24 * 60 * 60 * 1000; // shared files auto-expire after 24 h
+const SHARE_TICKET_TTL_MS = 60_000; // an upload ticket is valid for 60 s
+const SHARE_RATE_LIMIT_PER_MINUTE = 60; // per-IP, best-effort
 const MAX_PROXY_REDIRECTS = 5;
 const PROXY_TIMEOUT_MS = 30_000;
 const MAX_TRAJECTORY_URL_LENGTH = 2048;
@@ -460,6 +468,206 @@ async function handleProxy(request: Request, env: Env): Promise<Response> {
   });
 }
 
+// --- Trajectory sharing (R2) -------------------------------------------------
+// A room presenter uploads a local trajectory once; the room broadcasts the
+// resulting /share/{id} URL so every member loads it like any other URL.
+// Writes are gated by a short-lived HMAC ticket the room DO mints for the
+// presenter; downloads are served inert; storage is bounded by a global budget.
+
+async function hmacHex(key: string, message: string): Promise<string> {
+  const enc = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey("raw", enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", cryptoKey, enc.encode(message));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function timingSafeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Mints `roomId:exp:maxSize.<hmac>`; returns null when no signing key is set. */
+async function signUploadTicket(env: Env, roomId: string, maxSize: number): Promise<string | null> {
+  if (!env.SHARE_SIGNING_KEY) return null;
+  const payload = `${roomId}:${Date.now() + SHARE_TICKET_TTL_MS}:${maxSize}`;
+  return `${payload}.${await hmacHex(env.SHARE_SIGNING_KEY, payload)}`;
+}
+
+async function verifyUploadTicket(env: Env, token: string | null): Promise<{ roomId: string; maxSize: number } | null> {
+  if (!token || !env.SHARE_SIGNING_KEY) return null;
+  const dot = token.lastIndexOf(".");
+  if (dot < 0) return null;
+  const payload = token.slice(0, dot);
+  const expected = await hmacHex(env.SHARE_SIGNING_KEY, payload);
+  if (!timingSafeEqual(token.slice(dot + 1), expected)) return null;
+  const [roomId, expStr, maxStr] = payload.split(":");
+  const exp = Number(expStr);
+  const maxSize = Number(maxStr);
+  if (!sanitizeRoomId(roomId) || !Number.isFinite(exp) || exp < Date.now() || !Number.isFinite(maxSize) || maxSize <= 0) {
+    return null;
+  }
+  return { roomId, maxSize };
+}
+
+function sanitizeShareName(value: string | null): string {
+  const cleaned = (value ?? "").replace(/[^A-Za-z0-9._-]/g, "").slice(0, 80);
+  return cleaned || "trajectory";
+}
+
+// Best-effort per-IP rate limit for the /share routes (module-scoped; resets
+// per isolate). The HMAC ticket is the real write gate — this only blunts bursts.
+const shareRateBuckets = new Map<string, { windowStartedAt: number; count: number }>();
+function shareRateLimited(request: Request): boolean {
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const now = Date.now();
+  const bucket = shareRateBuckets.get(ip);
+  if (!bucket || now - bucket.windowStartedAt > RATE_WINDOW_MS * 6) {
+    shareRateBuckets.set(ip, { windowStartedAt: now, count: 1 });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > SHARE_RATE_LIMIT_PER_MINUTE;
+}
+
+/** After an upload, delete the oldest objects until the bucket is under budget. */
+async function evictOldestOverBudget(env: Env): Promise<void> {
+  if (!env.DROPS) return;
+  const budget = numberFromEnv(env.MAX_SHARE_STORAGE_BYTES, DEFAULT_MAX_SHARE_STORAGE_BYTES);
+  try {
+    const objects: R2Object[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await env.DROPS.list({ cursor, limit: 1000 });
+      objects.push(...page.objects);
+      cursor = page.truncated ? page.cursor : undefined;
+    } while (cursor);
+
+    let total = objects.reduce((sum, o) => sum + o.size, 0);
+    if (total <= budget) return;
+    objects.sort((a, b) => a.uploaded.getTime() - b.uploaded.getTime()); // oldest first
+    for (const object of objects) {
+      if (total <= budget) break;
+      await env.DROPS.delete(object.key);
+      total -= object.size;
+    }
+  } catch {
+    // Eviction is best-effort; never fail the upload because cleanup hiccuped.
+  }
+}
+
+async function handleShareUpload(request: Request, env: Env): Promise<Response> {
+  const cors = proxyCorsHeaders(request);
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...cors,
+        "access-control-allow-methods": "POST, OPTIONS",
+        "access-control-allow-headers": "authorization, content-type",
+        "access-control-max-age": "600",
+      },
+    });
+  }
+  if (request.method !== "POST") {
+    return json({ error: "Method not allowed." }, { status: 405, headers: cors });
+  }
+  if (!originAllowed(request, env)) {
+    return json({ error: "Origin is not allowed." }, { status: 403, headers: cors });
+  }
+  if (shareRateLimited(request)) {
+    return json({ error: "Rate limit exceeded." }, { status: 429, headers: cors });
+  }
+  if (!env.DROPS) {
+    return json({ error: "Sharing storage is not configured." }, { status: 503, headers: cors });
+  }
+
+  const bearer = request.headers.get("Authorization")?.match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
+  const ticket = await verifyUploadTicket(env, bearer);
+  if (!ticket) {
+    return json({ error: "A valid upload ticket is required." }, { status: 401, headers: cors });
+  }
+
+  const cap = Math.min(ticket.maxSize, numberFromEnv(env.MAX_PROXY_BYTES, DEFAULT_MAX_PROXY_BYTES));
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > cap) {
+    return json({ error: `File exceeds the size limit (${cap} bytes).` }, { status: 413, headers: cors });
+  }
+  if (!request.body) {
+    return json({ error: "Empty upload." }, { status: 400, headers: cors });
+  }
+
+  // Enforce the real streamed size (not the spoofable Content-Length) by
+  // buffering through a limiter that errors past the cap.
+  let sentBytes = 0;
+  const limiter = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      sentBytes += chunk.byteLength;
+      if (sentBytes > cap) controller.error(new Error("Upload exceeds the size limit."));
+      else controller.enqueue(chunk);
+    },
+  });
+  let body: ArrayBuffer;
+  try {
+    body = await new Response(request.body.pipeThrough(limiter)).arrayBuffer();
+  } catch {
+    return json({ error: `File exceeds the size limit (${cap} bytes).` }, { status: 413, headers: cors });
+  }
+
+  const id = crypto.randomUUID();
+  await env.DROPS.put(id, body, {
+    httpMetadata: { contentType: "application/octet-stream" },
+    customMetadata: {
+      name: sanitizeShareName(new URL(request.url).searchParams.get("name")),
+      roomId: ticket.roomId,
+      expiresAt: String(Date.now() + SHARE_TTL_MS),
+    },
+  });
+  await evictOldestOverBudget(env);
+
+  return json({ id }, { headers: cors });
+}
+
+async function handleShareDownload(request: Request, env: Env, id: string): Promise<Response> {
+  const cors = proxyCorsHeaders(request);
+  if (request.method !== "GET") {
+    return json({ error: "Method not allowed." }, { status: 405, headers: cors });
+  }
+  if (!originAllowed(request, env)) {
+    return json({ error: "Origin is not allowed." }, { status: 403, headers: cors });
+  }
+  if (shareRateLimited(request)) {
+    return json({ error: "Rate limit exceeded." }, { status: 429, headers: cors });
+  }
+  if (!/^[A-Za-z0-9-]+$/.test(id) || !env.DROPS) {
+    return json({ error: "Not found." }, { status: 404, headers: cors });
+  }
+
+  const object = await env.DROPS.get(id);
+  if (!object) {
+    return json({ error: "Not found." }, { status: 404, headers: cors });
+  }
+  const expiresAt = Number(object.customMetadata?.expiresAt);
+  if (Number.isFinite(expiresAt) && expiresAt < Date.now()) {
+    await env.DROPS.delete(id);
+    return json({ error: "This shared file has expired." }, { status: 404, headers: cors });
+  }
+
+  const name = sanitizeShareName(object.customMetadata?.name ?? null);
+  // Always inert: never a renderable page on this origin, whatever was stored.
+  return new Response(object.body, {
+    status: 200,
+    headers: {
+      ...cors,
+      "content-type": "application/octet-stream",
+      "content-disposition": `attachment; filename="${name}"`,
+      "x-content-type-options": "nosniff",
+      "content-security-policy": "sandbox; default-src 'none'",
+    },
+  });
+}
+
 function send(socket: WebSocket, data: unknown) {
   try {
     socket.send(JSON.stringify(data));
@@ -502,6 +710,14 @@ export default {
 
     if (url.pathname === "/proxy") {
       return handleProxy(request, env);
+    }
+
+    if (url.pathname === "/share") {
+      return handleShareUpload(request, env);
+    }
+    const shareMatch = url.pathname.match(/^\/share\/([A-Za-z0-9-]+)$/);
+    if (shareMatch) {
+      return handleShareDownload(request, env, shareMatch[1]);
     }
 
     const match = url.pathname.match(/^\/room\/([^/]+)$/);
@@ -551,7 +767,7 @@ export class RoomDurableObject extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  private onMessage(socket: WebSocket, event: MessageEvent) {
+  private async onMessage(socket: WebSocket, event: MessageEvent) {
     let message: ClientMessage;
     if (messageByteLength(event.data) > numberFromEnv(this.env.MAX_MESSAGE_BYTES, DEFAULT_MAX_MESSAGE_BYTES)) {
       send(socket, { type: "error", message: "Message is too large." });
@@ -622,6 +838,27 @@ export class RoomDurableObject extends DurableObject<Env> {
       this.state = { ...this.state, presenterId: user.id, updatedAt: Date.now() };
       this.broadcastPresence();
       this.broadcast({ type: "take-presenter", presenterId: user.id });
+      return;
+    }
+
+    // The presenter asks for a short-lived ticket to upload a local trajectory
+    // to R2; the ticket authorizes one write up to the 50 MB cap for this room.
+    if (message.type === "request-upload") {
+      if (this.state.presenterId !== user.id) {
+        send(socket, { type: "error", message: "Only the presenter can share a file." });
+        return;
+      }
+      const cap = numberFromEnv(this.env.MAX_PROXY_BYTES, DEFAULT_MAX_PROXY_BYTES);
+      if (isFiniteNumber(message.size) && message.size > cap) {
+        send(socket, { type: "error", message: `File exceeds the ${cap}-byte share limit.` });
+        return;
+      }
+      const token = await signUploadTicket(this.env, this.roomId, cap);
+      if (!token) {
+        send(socket, { type: "error", message: "Sharing is not configured on this server." });
+        return;
+      }
+      send(socket, { type: "upload-ticket", token });
       return;
     }
 

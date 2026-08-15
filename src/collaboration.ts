@@ -47,6 +47,7 @@ export type ServerMessage =
   | { type: "presence"; users: RoomUser[]; presenterId: string | null }
   | { type: "presenter-state"; senderId: string; state: PresenterState }
   | { type: "take-presenter"; presenterId: string }
+  | { type: "upload-ticket"; token: string }
   | { type: "error"; message: string };
 
 interface CollaborationCallbacks {
@@ -121,6 +122,7 @@ export class CollaborationClient {
   private status: ConnectionStatus = "offline";
   private intentionallyClosing = false;
   private joinTimeoutId: number | null = null;
+  private pendingTicket: { resolve: (token: string) => void; reject: (error: Error) => void; timeoutId: number } | null = null;
   private user: RoomUser = {
     id: randomId(),
     name: "Guest",
@@ -242,6 +244,32 @@ export class CollaborationClient {
     this.send({ type: "take-presenter" });
   }
 
+  /**
+   * Asks the room server for a short-lived ticket authorizing the presenter to
+   * upload a local trajectory (up to `size` bytes) to the /share endpoint.
+   * Resolves with the token, or rejects on error/timeout.
+   */
+  requestUploadTicket(size: number, name: string): Promise<string> {
+    if (!this.isPresenter()) return Promise.reject(new Error("Only the presenter can share a file."));
+    if (this.pendingTicket) return Promise.reject(new Error("An upload ticket request is already in progress."));
+    return new Promise<string>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        this.pendingTicket = null;
+        reject(new Error("Timed out waiting for an upload ticket."));
+      }, JOIN_TIMEOUT_MS);
+      this.pendingTicket = { resolve, reject, timeoutId };
+      this.send({ type: "request-upload", size, name });
+    });
+  }
+
+  private settleTicket(token: string | null, error?: Error) {
+    if (!this.pendingTicket) return;
+    window.clearTimeout(this.pendingTicket.timeoutId);
+    if (token !== null) this.pendingTicket.resolve(token);
+    else this.pendingTicket.reject(error ?? new Error("Upload ticket request failed."));
+    this.pendingTicket = null;
+  }
+
   private onMessage(event: MessageEvent) {
     let message: ServerMessage;
     try {
@@ -281,7 +309,17 @@ export class CollaborationClient {
       return;
     }
 
+    if (message.type === "upload-ticket") {
+      this.settleTicket(message.token);
+      return;
+    }
+
     if (message.type === "error") {
+      // A share request in flight fails without tearing down the connection.
+      if (this.pendingTicket) {
+        this.settleTicket(null, new Error(message.message));
+        return;
+      }
       this.clearJoinTimeout();
       this.setStatus("error");
       this.callbacks.onError?.(message.message);
@@ -306,6 +344,7 @@ export class CollaborationClient {
 
   /** Clears connection/room fields and notifies listeners that the room is empty. */
   private resetRoomState() {
+    this.settleTicket(null, new Error("Left the room before the upload ticket arrived."));
     this.ws = null;
     this.users = [];
     this.presenterId = null;

@@ -17,6 +17,8 @@ export type Vec3Tuple = [number, number, number];
 const BOHR_TO_ANGSTROM = 0.529177210903;
 // Guard against pathological grids exhausting memory (~64 MB of Float32).
 const MAX_GRID_POINTS = 16_000_000;
+// Guard against a malformed/hostile atom count driving a huge allocation/loop.
+const MAX_CUBE_ATOMS = 2_000_000;
 
 export interface CubeAtom {
   atomicNumber: number;
@@ -152,6 +154,9 @@ export async function parseCubeVolume(
   const isOrbitalCube = natomsRaw < 0;
   const numAtoms = Math.abs(natomsRaw);
   if (numAtoms < 1) throw new Error("Cube file declares no atoms.");
+  if (numAtoms > MAX_CUBE_ATOMS) {
+    throw new Error(`Cube declares ${numAtoms.toLocaleString()} atoms, over the ${MAX_CUBE_ATOMS.toLocaleString()} limit.`);
+  }
   const originRaw: Vec3Tuple = [await readNumber("origin x"), await readNumber("origin y"), await readNumber("origin z")];
 
   async function readAxis(label: string): Promise<{ count: number; vector: Vec3Tuple }> {

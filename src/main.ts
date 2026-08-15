@@ -27,6 +27,7 @@ import {
   type ViewState,
 } from "./collaboration";
 import { fetchTrajectoryBlob } from "./trajectoryFetch";
+import { uploadTrajectory } from "./shareDrop";
 import {
   fetchMaterialsProjectXyz,
   materialsProjectId,
@@ -126,6 +127,11 @@ let cubeStatusSummary = "";
 let playback: Playback | null = null;
 let currentTrajectoryUrl: string | null = null;
 let pendingTrajectoryUrl: string | null = null;
+// The most recent locally-loaded (non-URL) trajectory, kept so a presenter can
+// upload it to the room's /share storage on demand. Cleared on URL loads.
+let lastLocalBlob: Blob | null = null;
+let lastLocalName = "";
+let sharingInFlight = false;
 let activeTrajectoryFetch: AbortController | null = null;
 let trajectoryLoadVersion = 0;
 let applyingRemoteState = false;
@@ -237,6 +243,7 @@ const collaboration = new CollaborationClient({
     updateCollaborationUi();
     if (collaboration.isPresenter()) {
       markPresenterStateDirty(true);
+      void ensureLocalTrajectoryShared();
     } else {
       void applyRemotePresenterState(message.state);
     }
@@ -251,6 +258,7 @@ const collaboration = new CollaborationClient({
     updateCollaborationUi();
     if (collaboration.isPresenter()) {
       markPresenterStateDirty(true);
+      void ensureLocalTrajectoryShared();
     }
   },
   onConnectionStatus: () => updateCollaborationUi(),
@@ -453,7 +461,7 @@ async function applyRemotePresenterState(state: PresenterState) {
     if (applyVersion !== remoteApplyVersion) return;
 
     if (!state.trajectoryUrl && !moleculeRenderer) {
-      statusEl.textContent = "Waiting for presenter to load a trajectory URL. Local files are not shared through the room.";
+      statusEl.textContent = "Waiting for the presenter to load a trajectory…";
     }
 
     if (state.trajectoryUrl && state.trajectoryUrl !== currentTrajectoryUrl) {
@@ -587,6 +595,36 @@ function mountMolecule(trajectory: Trajectory, sourceUrl: string | null) {
   currentTrajectoryUrl = sourceUrl;
 }
 
+/**
+ * When the presenter has a local file loaded (no URL to broadcast), upload it
+ * once to the room's /share storage and adopt the returned URL so every member
+ * loads it like any other trajectory. No-op unless presenter + local file +
+ * not already shared. Runs on local loads and when joining / taking presenter.
+ */
+async function ensureLocalTrajectoryShared() {
+  if (sharingInFlight) return;
+  if (!collaboration.isPresenter() || currentTrajectoryUrl || !lastLocalBlob) return;
+
+  const blob = lastLocalBlob;
+  const name = lastLocalName || "trajectory.xyz";
+  sharingInFlight = true;
+  try {
+    statusEl.textContent = "Sharing file with the room…";
+    const token = await collaboration.requestUploadTicket(blob.size, name);
+    if (lastLocalBlob !== blob) return; // a newer file was loaded while waiting
+    const httpBase = httpBaseFromWebSocketBase(normalizeWebSocketBase(serverInput.value) || defaultWebSocketBase());
+    const shareUrl = await uploadTrajectory(httpBase, blob, name, token);
+    if (lastLocalBlob !== blob) return;
+    currentTrajectoryUrl = shareUrl;
+    statusEl.textContent = "Shared with the room — others can now load this file.";
+    markPresenterStateDirty(true);
+  } catch (err) {
+    statusEl.textContent = `Could not share this file with the room: ${(err as Error).message}`;
+  } finally {
+    sharingInFlight = false;
+  }
+}
+
 
 async function loadCubeVolume(
   file: Blob,
@@ -614,6 +652,7 @@ async function loadCubeVolume(
 
   statusEl.textContent = cubeStatusSummary;
   if (broadcastState) markPresenterStateDirty(true);
+  if (broadcastState && !sourceUrl) void ensureLocalTrajectoryShared();
 }
 
 async function loadTrajectoryFile(
@@ -626,6 +665,13 @@ async function loadTrajectoryFile(
     activeTrajectoryFetch?.abort();
     activeTrajectoryFetch = null;
     pendingTrajectoryUrl = null;
+    // A locally-loaded file: remember it so a presenter can share it, and drop
+    // any previous share URL so ensureLocalTrajectoryShared re-uploads.
+    lastLocalBlob = file;
+    lastLocalName = (file as File).name || "trajectory.xyz";
+  } else {
+    lastLocalBlob = null;
+    lastLocalName = "";
   }
 
   let format: TrajectoryFormat;
@@ -680,10 +726,8 @@ async function loadTrajectoryFile(
     document.body.classList.add("has-playback");
 
     statusEl.textContent = `Loaded ${trajectory.numAtoms} atoms x ${trajectory.numFrames} frames`;
-    if (broadcastState && collaboration.isPresenter() && !sourceUrl) {
-      statusEl.textContent += "\nRoom note: local files cannot sync to other users. Use Load URL for multiuser rooms.";
-    }
     if (broadcastState) markPresenterStateDirty(true);
+    if (broadcastState && !sourceUrl) void ensureLocalTrajectoryShared();
   } catch (err) {
     if (loadVersion !== trajectoryLoadVersion) return;
     console.error(err);

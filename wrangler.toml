@@ -8,8 +8,16 @@ MAX_ROOM_USERS = "6"
 MAX_MESSAGE_BYTES = "8192"
 MAX_MESSAGES_PER_10_SECONDS = "240"
 MAX_PROXY_BYTES = "52428800"
+# Global cap on total /share (R2) storage before oldest files are evicted (4.5 GB).
+MAX_SHARE_STORAGE_BYTES = "4831838208"
 # Hosts the /proxy route may fetch from; entries starting with "." are suffix matches.
 PROXY_ALLOWED_HOSTS = "drive.google.com,drive.usercontent.google.com,.dropboxusercontent.com,api.onedrive.com,onedrive.live.com,1drv.ms,.1drv.com,raw.githubusercontent.com,optimade.materialsproject.org"
+
+# Shared trajectories uploaded by room presenters. SHARE_SIGNING_KEY (used to
+# sign upload tickets) is a secret: set it with `wrangler secret put SHARE_SIGNING_KEY`.
+[[r2_buckets]]
+binding = "DROPS"
+bucket_name = "gearsxr-drops"
 
 [durable_objects]
 bindings = [
