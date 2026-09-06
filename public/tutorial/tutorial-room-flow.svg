@@ -91,7 +91,7 @@
 
   <g transform="translate(54 488)">
     <rect class="tip" width="992" height="64" rx="12"/>
-    <text class="tipText" x="22" y="27">Load the molecule with Load URL (not Choose File) so everyone's browser can fetch the same file.</text>
-    <text class="tipText" x="22" y="49">The first person in the room controls playback; anyone can click Take Presenter.</text>
+    <text class="tipText" x="22" y="27">Load with a URL, Choose File, or drag and drop. Local presenter files are shared automatically.</text>
+    <text class="tipText" x="22" y="49">The presenter controls playback and view; anyone can click Take Presenter.</text>
   </g>
 </svg>

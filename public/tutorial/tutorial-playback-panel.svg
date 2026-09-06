@@ -36,9 +36,9 @@
     <circle class="badge" cx="28" cy="105" r="18"/><text class="badgeText" x="28" y="106">2</text>
 
     <rect class="button" x="116" y="104" width="56" height="34" rx="7"/>
-    <text class="buttonText" x="130" y="126">Prev</text>
+    <text class="buttonText" x="139" y="126">&lt;</text>
     <rect class="button" x="184" y="104" width="56" height="34" rx="7"/>
-    <text class="buttonText" x="199" y="126">Next</text>
+    <text class="buttonText" x="205" y="126">&gt;</text>
     <circle class="badge" cx="116" cy="105" r="18"/><text class="badgeText" x="116" y="106">3</text>
 
     <text class="label" x="276" y="127">FPS</text>
@@ -62,7 +62,7 @@
     </g>
     <g transform="translate(30 188)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">3</text>
-      <text class="legendTitle" x="48" y="14">Prev / Next</text>
+      <text class="legendTitle" x="48" y="14">&lt; / &gt;</text>
       <text class="legendText" x="48" y="38">Step exactly one frame.</text>
     </g>
     <g transform="translate(214 188)">

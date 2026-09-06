@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="680" viewBox="0 0 1100 680" role="img" aria-labelledby="title desc">
   <title id="title">Main loading panel controls</title>
-  <desc id="desc">Clean annotated schematic of the main GEARS XR panel for loading XYZ files and changing backgrounds.</desc>
+  <desc id="desc">Clean annotated schematic of the main GEARS XR panel for loading XYZ trajectories or Gaussian Cube files and changing backgrounds.</desc>
   <defs>
     <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0b1220" flood-opacity="0.16"/></filter>
     <style>
@@ -22,7 +22,7 @@
     </style>
   </defs>
   <rect class="page" width="1100" height="680"/>
-  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Main panel: load trajectories</text>
+  <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Main panel: load molecular data</text>
   <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Use this panel for file input, URL loading, background selection, and hiding controls.</text>
 
   <g transform="translate(70 128)">
@@ -32,7 +32,7 @@
     <text class="buttonText" x="371" y="44">Hide</text>
     <circle class="badge" cx="430" cy="20" r="18"/><text class="badgeText" x="430" y="21">4</text>
 
-    <text class="label" x="28" y="96">Load extended XYZ file</text>
+    <text class="label" x="28" y="96">Load an XYZ trajectory or Cube file</text>
     <rect class="field" x="28" y="114" width="174" height="40" rx="6"/>
     <text class="muted" x="44" y="139">Choose File</text>
     <text class="muted" x="220" y="139">or drag and drop anywhere</text>
@@ -58,12 +58,12 @@
     <g transform="translate(30 78)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">1</text>
       <text class="legendTitle" x="48" y="14">Choose File</text>
-      <text class="legendText" x="48" y="38">Open a local XYZ file for single-user viewing.</text>
+      <text class="legendText" x="48" y="38">Open a local XYZ trajectory or Cube file.</text>
     </g>
     <g transform="translate(30 146)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">2</text>
       <text class="legendTitle" x="48" y="14">Load URL</text>
-      <text class="legendText" x="48" y="38">Load a browser-accessible trajectory URL.</text>
+      <text class="legendText" x="48" y="38">Load a structure or trajectory from a URL.</text>
     </g>
     <g transform="translate(30 214)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">3</text>
@@ -79,6 +79,6 @@
 
   <g transform="translate(70 558)">
     <rect class="tip" width="954" height="58" rx="14"/>
-    <text class="tipText" x="24" y="36">Room tip: use Load URL for multiuser demos. Local files stay only in your own browser.</text>
+    <text class="tipText" x="24" y="36">Room tip: local presenter files are uploaded temporarily and shared with everyone automatically.</text>
   </g>
 </svg>

@@ -58,7 +58,7 @@
       <text class="panelText" x="18" y="32">GEARS XR</text>
       <rect class="button" x="208" y="15" width="42" height="24" rx="5"/>
       <text class="muted" x="217" y="32">Hide</text>
-      <text class="uiText" x="18" y="68">Load extended XYZ file</text>
+      <text class="uiText" x="18" y="68">Load XYZ or Cube file</text>
       <rect class="field" x="18" y="80" width="112" height="24" rx="4"/>
       <text class="muted" x="28" y="97">Choose File</text>
       <text class="uiText" x="18" y="130">Or load from a URL</text>
@@ -84,9 +84,9 @@
       <rect class="button" x="14" y="56" width="48" height="22" rx="5"/>
       <text class="muted" x="25" y="72">Play</text>
       <rect class="button" x="72" y="56" width="34" height="22" rx="5"/>
-      <text class="muted" x="84" y="72">Prev</text>
+      <text class="muted" x="86" y="72">&lt;</text>
       <rect class="button" x="116" y="56" width="34" height="22" rx="5"/>
-      <text class="muted" x="127" y="72">Next</text>
+      <text class="muted" x="128" y="72">&gt;</text>
       <text class="uiText" x="166" y="72">FPS</text>
       <rect class="field" x="204" y="54" width="46" height="26" rx="5"/>
       <text class="muted" x="219" y="72">15</text>
@@ -110,7 +110,7 @@
     <g transform="translate(24 72)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">1</text>
       <text class="legendTitle" x="44" y="14">Main panel</text>
-      <text class="legendText" x="44" y="36">Load XYZ files.</text>
+      <text class="legendText" x="44" y="36">Load XYZ/Cube files.</text>
       <text class="legendText" x="44" y="56">Choose backgrounds.</text>
     </g>
     <g transform="translate(24 152)">
@@ -127,7 +127,7 @@
     <g transform="translate(24 312)">
       <circle class="badge" cx="16" cy="16" r="16"/><text class="badgeText" x="16" y="17">4</text>
       <text class="legendTitle" x="44" y="14">Room</text>
-      <text class="legendText" x="44" y="36">Join and copy links.</text>
+      <text class="legendText" x="44" y="36">Join with a room code.</text>
       <text class="legendText" x="44" y="56">Take presenter control.</text>
     </g>
   </g>

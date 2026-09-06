@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="520" viewBox="0 0 1100 520" role="img" aria-labelledby="title desc">
-  <title id="title">Drag and drop an XYZ file</title>
-  <desc id="desc">A molecule file is dragged from the desktop and dropped anywhere onto the GEARS XR window.</desc>
+  <title id="title">Drag and drop an XYZ or Cube file</title>
+  <desc id="desc">An XYZ trajectory or Gaussian Cube file is dragged from the desktop and dropped anywhere onto the GEARS XR window.</desc>
   <defs>
     <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%"><feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0b1220" flood-opacity="0.16"/></filter>
     <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#08131f"/><stop offset="1" stop-color="#05070c"/></linearGradient>
@@ -26,7 +26,7 @@
   </defs>
   <rect class="page" width="1100" height="520"/>
   <text x="54" y="62" fill="#0f172a" style="font: 800 28px system-ui, sans-serif;">Or just drop your file on the window</text>
-  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Drag a .xyz file from your computer anywhere onto the page.</text>
+  <text x="54" y="88" fill="#64748b" style="font: 16px system-ui, sans-serif;">Drag an XYZ trajectory or Gaussian Cube file anywhere onto the page.</text>
 
   <!-- file being dragged -->
   <g transform="translate(96 170)">
@@ -62,8 +62,8 @@
     <rect class="legendCard" width="150" height="256" rx="16"/>
     <text class="legendTitle" x="22" y="40">Tips</text>
     <text class="legendText" x="22" y="72">Works with</text>
-    <text class="legendText" x="22" y="92">.xyz and</text>
-    <text class="legendText" x="22" y="112">.extxyz files.</text>
+    <text class="legendText" x="22" y="92">.xyz, .extxyz,</text>
+    <text class="legendText" x="22" y="112">.cube, and .cub.</text>
     <text class="legendText" x="22" y="152">Choose File in</text>
     <text class="legendText" x="22" y="172">the main panel</text>
     <text class="legendText" x="22" y="192">does the same</text>
@@ -72,6 +72,6 @@
 
   <g transform="translate(54 452)">
     <rect class="tip" width="998" height="48" rx="12"/>
-    <text class="tipText" x="22" y="30">Dropped files stay on your computer — nothing is uploaded. For shared rooms, use a link instead (see Watch together).</text>
+    <text class="tipText" x="22" y="30">Solo files stay on your device. A room presenter's local file is uploaded temporarily so everyone can view it.</text>
   </g>
 </svg>

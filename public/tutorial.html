@@ -201,16 +201,16 @@
         <figure>
           <img src="tutorial/tutorial-window-layout.svg" alt="Map of the GEARS XR window: main panel top-left, Enter VR top-right, playback bottom-left, Room panel bottom-right." width="1200" height="760" />
         </figure>
-        <p><b>Main panel</b> (top-left) opens files and changes the scenery. <b>Enter VR</b> (top-right) starts headset mode. <b>Playback</b> (bottom-left) plays the motion. <b>Room</b> (bottom-right) lets you watch together with others. Click <b>Hide</b> on any panel to tuck it away.</p>
+        <p><b>Main panel</b> (top-left) opens files and changes the scenery. <b>Enter VR</b> (top-right) starts headset mode. <b>Playback</b> (bottom-left) plays the motion. <b>Room</b> (bottom-right) lets you watch together with others. The Main and Room panels each have a <b>Hide</b> button to tuck them away.</p>
         <p>You can also look around freely: <b>drag</b> to orbit around the molecule, <b>scroll</b> to zoom, and <b>right-drag</b> to slide sideways.</p>
       </section>
 
       <section id="load">
         <span class="kicker">Your own data</span>
         <h2>Open your own molecule</h2>
-        <p class="lead">GEARS XR reads <code>.xyz</code> files — a common, plain-text format for molecular snapshots and simulations.</p>
+        <p class="lead">GEARS XR reads <code>.xyz</code> and <code>.extxyz</code> trajectories, plus Gaussian Cube files (<code>.cube</code> and <code>.cub</code>).</p>
         <figure>
-          <img src="tutorial/tutorial-drag-drop.svg" alt="A .xyz file being dragged and dropped onto the GEARS XR window." width="1100" height="520" />
+          <img src="tutorial/tutorial-drag-drop.svg" alt="An XYZ trajectory or Gaussian Cube file being dragged and dropped onto the GEARS XR window." width="1100" height="520" />
         </figure>
         <p>The easiest way: <b>drag the file from your computer and drop it anywhere</b> on the page. Or click <b>Choose File</b> in the main panel.</p>
         <figure>
@@ -218,7 +218,7 @@
         </figure>
         <p>Got a file in the cloud? Paste a <b>Google Drive, Dropbox, OneDrive, or GitHub link</b> into the URL box and click <b>Load URL</b> — share links are understood automatically. Just make sure the file is shared as <i>"Anyone with the link."</i></p>
         <p>Studying a known material? Type a <b>Materials Project ID</b> like <code>mp-149</code> (silicon) into the URL box and click <b>Load URL</b> — GEARS XR fetches the crystal structure straight from the <a href="https://next-gen.materialsproject.org/">Materials Project</a>. Pasting the material's web page link works too.</p>
-        <div class="tip"><b>Private by design:</b> files you drop or choose stay on your computer. Nothing is uploaded anywhere.</div>
+        <div class="tip"><b>Local-file privacy:</b> files you drop or choose stay on your device during solo use. If you are the presenter in a room, GEARS XR temporarily uploads the current file so the other room members can view it. Room uploads are limited to 50 MB, expire after 24 hours, and may be removed sooner if shared storage fills up.</div>
       </section>
 
       <section id="play">
@@ -281,20 +281,20 @@
       <section id="together">
         <span class="kicker">Collaboration</span>
         <h2>Watch together</h2>
-        <p class="lead">Explore the same molecule with a colleague, a classroom, or a friend — all you share is a six-letter code.</p>
+        <p class="lead">Explore the same molecule with a colleague, a classroom, or a friend — all you share is a short room code.</p>
         <figure>
           <img src="tutorial/tutorial-room-flow.svg" alt="You copy the room code and send it to a friend; they type it and click Join, and both browsers show the same molecule." width="1100" height="560" />
         </figure>
         <ol class="steps">
-          <li>Load a molecule with <b>Load URL</b> (a link everyone's browser can reach — not Choose File).</li>
+          <li>Load a molecule with <b>Load URL</b>, <b>Choose File</b>, or drag and drop. If it is a local file, GEARS XR shares it automatically after you join as the presenter.</li>
           <li>Click <b>Show</b> on the <b>Room</b> panel at the bottom-right, then <b>Join</b>.</li>
           <li>Click <b>Copy Code</b> and send the short code to the others — chat, email, or out loud.</li>
-          <li>They type the same code, click <b>Join</b>, and see exactly what you see.</li>
+          <li>They type the same code and click <b>Join</b>. The structure, playback, view, background, and isosurfaces follow the presenter.</li>
         </ol>
         <figure>
           <img src="tutorial/tutorial-room-panel.svg" alt="The Room panel: room code field, Copy Code, Join and Leave buttons, name, and Take Presenter." width="1100" height="800" />
         </figure>
-        <p>The first person in the room is the <b>presenter</b> — they steer playback, the view, and the molecule. Anyone else can click <b>Take Presenter</b> to take the wheel.</p>
+        <p>The first person in the room is the <b>presenter</b> — they steer playback, the view, the molecule, the background, and any isosurfaces. Anyone else can click <b>Take Presenter</b> to take the wheel. Atom measurement selections stay private to each browser.</p>
       </section>
 
       <section id="vr">
@@ -320,16 +320,16 @@
         <h2>If something looks wrong</h2>
         <p class="lead">The most common hiccups, and their one-line fixes.</p>
         <details>
-          <summary>"This URL returned a web page, not an XYZ file"</summary>
+          <summary>"This URL returned a web page, not a data file"</summary>
           <p>Your cloud share link isn't public yet. In Google Drive/Dropbox/OneDrive, set the file to <b>"Anyone with the link"</b> and try again.</p>
         </details>
         <details>
-          <summary>"Expected a .xyz or .extxyz file"</summary>
-          <p>The link points at a file with a different name. Rename the file so it ends in <b>.xyz</b>, or use a direct link to the actual file.</p>
+          <summary>"Expected a .xyz, .extxyz, .cube, or .cub file"</summary>
+          <p>The link points at a file with a different extension. Rename it with one of the supported extensions, or use a direct link to the actual data file.</p>
         </details>
         <details>
           <summary>My friend joined the room but sees no molecule</summary>
-          <p>Load the molecule with <b>Load URL</b> instead of Choose File — local files stay on your computer, so others can't see them.</p>
+          <p>If you loaded a local file, wait for <b>Shared with the room</b> to appear in the status line. Files larger than 50 MB cannot be shared through a room; use a public URL instead.</p>
         </details>
         <details>
           <summary>The room stays on "Connecting"</summary>
